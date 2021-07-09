@@ -6,6 +6,8 @@ using Random
 using Test
 using Zygote
 
+using Zygote: ZygoteRuleConfig
+
 # For ITensor compatibility with FiniteDifferences
 function FiniteDifferences.to_vec(A::ITensor)
   # TODO: generalize to sparse tensors
