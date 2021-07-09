@@ -3,5 +3,10 @@ uuid = "79b97fc6-f224-48a6-bc79-3a561f8ff86d"
 authors = ["Matthew Fishman <mfishman@flatironinstitute.org> and contributors"]
 version = "0.0.1"
 
+[deps]
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+
 [compat]
 julia = "1.3"

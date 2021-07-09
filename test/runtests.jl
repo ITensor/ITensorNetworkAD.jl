@@ -2,5 +2,7 @@ using ITensorNetworkAD
 using Test
 
 @testset "ITensorNetworkAD.jl" begin
-    # Write your tests here.
+  include("ITensorNetworks/runtests.jl")
+  include("ITensorChainRules/runtests.jl")
+  include("ITensorAutoHOOT/runtests.jl")
 end
