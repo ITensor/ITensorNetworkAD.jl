@@ -1,0 +1,7 @@
+name = "ITensorNetworkAD"
+uuid = "79b97fc6-f224-48a6-bc79-3a561f8ff86d"
+authors = ["Matthew Fishman <mfishman@flatironinstitute.org> and contributors"]
+version = "0.0.1"
+
+[compat]
+julia = "1.3"
