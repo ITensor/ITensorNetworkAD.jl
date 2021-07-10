@@ -10,9 +10,6 @@ macro Model_str(s)
   return :(Model{$(Expr(:quote, Symbol(s)))})
 end
 
-#mpo_itensor(m::String, args...; kwargs...) =
-#  mpo_itensor(Model(m), args...; kwargs...)
-
 function local_boltzmann_weight(m::String, args...; kwargs...)
   return local_boltzmann_weight(Model(m), args...; kwargs...)
 end
@@ -73,7 +70,7 @@ function local_boltzmann_weight(
   end
   s̃ₕ, s̃ₕ′, s̃ᵥ, s̃ᵥ′ = sim.((sₕ, sₕ′, sᵥ, sᵥ′))
   T̃ = T * δ(sₕ, s̃ₕ) * δ(sₕ′, s̃ₕ′) * δ(sᵥ, s̃ᵥ) * δ(sᵥ′, s̃ᵥ′)
-  X = sqrt_bond_matrix(; β, J)
+  X = sqrt_bond_matrix(; β=β, J=J)
   Xₕ = itensor(vec(X), s̃ₕ, sₕ)
   Xₕ′ = itensor(vec(X), s̃ₕ′, sₕ′)
   Xᵥ = itensor(vec(X), s̃ᵥ, sᵥ)
@@ -89,12 +86,7 @@ function mpo_itensor(
   return itensor(mpo_array(m; kwargs...), sₕ, sₕ′, sᵥ, sᵥ′)
 end
 
-## function ising_mpo(sₕ::Index, sᵥ::Index, args...; kwargs...)
-##   return ising_mpo(sₕ => sₕ', sᵥ => sᵥ', args...; kwargs...)
-## end
-
 critical_point(::Model"ising") = 0.5 * log(√2 + 1)
-#const βc = critical_point(Model("ising"))
 
 function free_energy(::Model"ising"; β::Real, J::Real=1.0)
   k = β * J
