@@ -14,7 +14,7 @@ using ITensorNetworkAD.ITensorNetworks: Models, inds_network, project_boundary, 
 
   space = 2
   tn_inds = inds_network(N...; linkdims=space, addtags="S=1/2")
-  A = Models.local_boltzmann_weight("ising", Val(ndims); β)
+  A = Models.local_boltzmann_weight("ising", Val(ndims); β=β)
 
   tn = itensor.((A,), tn_inds)
 
