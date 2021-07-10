@@ -8,7 +8,16 @@ _maxdim_arg(a) = maxdim_arg(mapreduce(eltype, promote_type, a))
 maxdim_arg(a::AbstractArray) = _maxdim_arg(a)
 maxdim_arg(a::Union{MPS,MPO}) = _maxdim_arg(a)
 
-function truncation_projectors(H::MPO, ψ::MPS; split_tags=("" => ""), split_plevs=(0 => 1), cutoff=1e-8, maxdim=maxdim_arg(H), tol=1e-6, maxiter=10)
+function truncation_projectors(
+  H::MPO,
+  ψ::MPS;
+  split_tags=("" => ""),
+  split_plevs=(0 => 1),
+  cutoff=1e-8,
+  maxdim=maxdim_arg(H),
+  tol=1e-6,
+  maxiter=10,
+)
   left_tags, right_tags = split_tags
   left_plev, right_plev = split_plevs
   N = length(ψ)
@@ -46,7 +55,14 @@ function truncation_projectors(H::MPO, ψ::MPS; split_tags=("" => ""), split_ple
     Ln = replaceinds(L[n], links_n => left_links_n)
     Rn = replaceinds(R[n], links_n => right_links_n)
     ρn = Ln * Rn
-    U, S, V, spec = svd(ρn, left_links_n; maxdim=maxdim, cutoff=cutoff, lefttags=new_tags[n], leftplev=new_plevs[n])
+    U, S, V, spec = svd(
+      ρn,
+      left_links_n;
+      maxdim=maxdim,
+      cutoff=cutoff,
+      lefttags=new_tags[n],
+      leftplev=new_plevs[n],
+    )
     Ud = replaceinds(dag(U), left_links_n => right_links_n)
     overlap_old = (ρn * dag(U) * dag(Ud))[]
     err = 1.0
@@ -108,4 +124,3 @@ function truncation_projectors_assume_primes(H::MPO, ψ::MPS; cutoff=1e-8)
     end
   end
 end
-

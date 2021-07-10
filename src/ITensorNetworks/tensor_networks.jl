@@ -13,11 +13,13 @@ function ITensors.siteind(st::SiteType, N1::Integer, N2::Integer, Ns::Integer...
     end
     return addtags(s, ts)
   end
-  isnothing(s) && error(space_error_message(st))
+  return isnothing(s) && error(space_error_message(st))
 end
 
 # Generalize siteinds to n-dimensional lattice
-function ITensors.siteinds(str::AbstractString, N1::Integer, N2::Integer, Ns::Integer...; kwargs...)
+function ITensors.siteinds(
+  str::AbstractString, N1::Integer, N2::Integer, Ns::Integer...; kwargs...
+)
   st = SiteType(str)
   return [siteind(st, ns...) for ns in Base.product(1:N1, 1:N2, UnitRange.(1, Ns)...)]
 end
@@ -82,7 +84,9 @@ end
 using ITensors: data
 
 function Base.isless(i1::Index, i2::Index)
-  return isless((id(i1), plev(i1), tags(i1), dir(i1)), (id(i2), plev(i2), tags(i2), dir(i2)))
+  return isless(
+    (id(i1), plev(i1), tags(i1), dir(i1)), (id(i2), plev(i2), tags(i2), dir(i2))
+  )
 end
 
 Base.isless(ts1::TagSet, ts2::TagSet) = isless(data(ts1), data(ts2))
@@ -115,13 +119,17 @@ end
 
 # A network of link indices for a HyperCubic lattice, with
 # site indices specified.
-function inds_network(site_inds::Array{<:Vector{<:Index},N}; linkdims, addtags=ts"") where {N}
+function inds_network(
+  site_inds::Array{<:Vector{<:Index},N}; linkdims, addtags=ts""
+) where {N}
   dims = size(site_inds)
   lattice = HyperCubic(dims)
   linkinds_dict = linkinds(lattice; linkdims, addtags)
   inds = Array{Vector{Index{typeof(linkdims)}},N}(undef, dims)
   for n in sites(lattice)
-    inds_n = [get_link_ind(linkinds_dict, edge_n, n) for edge_n in incident_edges(lattice, n)]
+    inds_n = [
+      get_link_ind(linkinds_dict, edge_n, n) for edge_n in incident_edges(lattice, n)
+    ]
     inds[n...] = append!(inds_n, site_inds[n...])
   end
   return inds
@@ -140,14 +148,20 @@ end
 # neighbor((2, 2), 2, -1) == (2, 1)
 # neighbor((2, 2), 1, -1) == (1, 2)
 # neighbor((2, 3), 2, 1, lattice_size=(3, 3)) == (2, 1)
-function neighbor(site::NTuple{N,Int}, dim::Int, dir::Int; lattice_size=typemax(eltype(site))) where {N}
-  return map((a, b, d) -> mod1(a + dir * b, d), site, onehot_tuple(dim, Val(N)), lattice_size)
+function neighbor(
+  site::NTuple{N,Int}, dim::Int, dir::Int; lattice_size=typemax(eltype(site))
+) where {N}
+  return map(
+    (a, b, d) -> mod1(a + dir * b, d), site, onehot_tuple(dim, Val(N)), lattice_size
+  )
 end
 
 #function isboundary(site::dir::Int, 
 # Check if the edge connecting to the specified neighbor of the site 
 # crosses the boundary of the lattice
-function isboundary(site::NTuple{N,Int}, dim::Int, dir::Int; lattice_size=typemax(eltype(site))) where {N}
+function isboundary(
+  site::NTuple{N,Int}, dim::Int, dir::Int; lattice_size=typemax(eltype(site))
+) where {N}
   return ((dir == 1) && (site[dim] == lattice_size[dim])) || ((dir == -1) && site[dim] == 1)
 end
 
@@ -181,7 +195,9 @@ function incident_edges(lattice::HyperCubic{N}, site::NTuple{N,Int}) where {N}
   return site_edges
 end
 
-bonds(lattice::HyperCubic) = ((s, n) for s in sites(lattice) for n in directed_neighbors(lattice, s))
+function bonds(lattice::HyperCubic)
+  return ((s, n) for s in sites(lattice) for n in directed_neighbors(lattice, s))
+end
 
 function unique_bonds(lattice::HyperCubic)
   # Turn into Sets so order doesn't matter
@@ -238,14 +254,14 @@ indtype(tn) = mapreduce(indtype, promote_type, tn)
 function filter_alllinkinds(f, tn)
   linkinds = Dict{Tuple{keytype(tn),keytype(tn)},Vector{indtype(tn)}}()
   for n in keys(tn), m in keys(tn)
-   if f(n, m)
-     is = commoninds(tn[n], tn[m])
-     if !isempty(is)
-       linkinds[(n, m)] = is
-     end
-   end
- end
- return linkinds
+    if f(n, m)
+      is = commoninds(tn[n], tn[m])
+      if !isempty(is)
+        linkinds[(n, m)] = is
+      end
+    end
+  end
+  return linkinds
 end
 alllinkinds(tn) = filter_alllinkinds(≠, tn)
 inlinkinds(tn) = filter_alllinkinds(>, tn)
@@ -267,7 +283,9 @@ function split_links(H::Union{MPS,MPO}; split_tags=("" => ""), split_plevs=(0 =>
   return Hsplit
 end
 
-split_links(H::Vector{ITensor}, args...; kwargs...) = data(split_links(MPS(H), args...; kwargs...))
+function split_links(H::Vector{ITensor}, args...; kwargs...)
+  return data(split_links(MPS(H), args...; kwargs...))
+end
 
 function insert_projectors(H, psi, projs)
   N = length(H)
@@ -282,7 +300,13 @@ end
 
 # Compute the truncation projectors for the network,
 # contracting from top to bottom
-function truncation_projectors(tn::Matrix{ITensor}; maxdim=maxdim_arg(tn), cutoff=1e-8, split_tags=("" => ""), split_plevs=(0 => 1))
+function truncation_projectors(
+  tn::Matrix{ITensor};
+  maxdim=maxdim_arg(tn),
+  cutoff=1e-8,
+  split_tags=("" => ""),
+  split_plevs=(0 => 1),
+)
   nrows, ncols = size(tn)
   U = Matrix{ITensor}(undef, nrows - 3, ncols - 1)
   Ud = copy(U)
@@ -295,12 +319,16 @@ function truncation_projectors(tn::Matrix{ITensor}; maxdim=maxdim_arg(tn), cutof
   tn_split[1, :] .= psi_split
   for n in 1:(nrows - 3)
     H = tn[n + 1, :]
-    projs = truncation_projectors(H, psi; split_tags=split_tags, split_plevs=split_plevs, cutoff=cutoff)
+    projs = truncation_projectors(
+      H, psi; split_tags=split_tags, split_plevs=split_plevs, cutoff=cutoff
+    )
     U[n, :] = first.(projs)
     Ud[n, :] = last.(projs)
     if n < size(U, 1)
       for m in 1:size(U, 2)
-        U[n, m], Ud[n, m] = split_links([U[n, m], Ud[n, m]]; split_tags=split_tags, split_plevs=split_plevs)
+        U[n, m], Ud[n, m] = split_links(
+          [U[n, m], Ud[n, m]]; split_tags=split_tags, split_plevs=split_plevs
+        )
       end
     end
     H_split = split_links(H; split_tags=split_tags, split_plevs=split_plevs)
@@ -316,14 +344,14 @@ struct ContractionAlgorithm{algorithm} end
 ContractionAlgorithm(s::AbstractString) = ContractionAlgorithm{Symbol(s)}()
 
 macro ContractionAlgorithm_str(s)
-  :(ContractionAlgorithm{$(Expr(:quote, Symbol(s)))})
+  return :(ContractionAlgorithm{$(Expr(:quote, Symbol(s)))})
 end
 
 Base.@kwdef struct BoundaryMPS
-  top::Vector{MPS}=MPS[]
-  bottom::Vector{MPS}=MPS[]
-  left::Vector{MPS}=MPS[]
-  right::Vector{MPS}=MPS[]
+  top::Vector{MPS} = MPS[]
+  bottom::Vector{MPS} = MPS[]
+  left::Vector{MPS} = MPS[]
+  right::Vector{MPS} = MPS[]
 end
 
 struct BoundaryMPSDir{dir} end
@@ -331,11 +359,16 @@ struct BoundaryMPSDir{dir} end
 BoundaryMPSDir(s::AbstractString) = BoundaryMPSDir{Symbol(s)}()
 
 macro BoundaryMPSDir_str(s)
-  :(BoundaryMPSDir{$(Expr(:quote, Symbol(s)))})
+  return :(BoundaryMPSDir{$(Expr(:quote, Symbol(s)))})
 end
 
-function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps",
-                         dirs::BoundaryMPSDir"top_to_bottom"; cutoff, maxdim)
+function contract_approx(
+  tn::Matrix{ITensor},
+  alg::ContractionAlgorithm"boundary_mps",
+  dirs::BoundaryMPSDir"top_to_bottom";
+  cutoff,
+  maxdim,
+)
   nrows, ncols = size(tn)
   boundary_mps = Vector{MPS}(undef, nrows - 1)
   x = MPS(tn[1, :])
@@ -345,54 +378,98 @@ function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary
     x = contract(A, x; cutoff=cutoff, maxdim=maxdim)
     boundary_mps[nrow] = orthogonalize(x, ncols)
   end
-  return BoundaryMPS(top=boundary_mps)
+  return BoundaryMPS(; top=boundary_mps)
 end
 
-function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps",
-                         dirs::BoundaryMPSDir"bottom_to_top"; cutoff, maxdim)
+function contract_approx(
+  tn::Matrix{ITensor},
+  alg::ContractionAlgorithm"boundary_mps",
+  dirs::BoundaryMPSDir"bottom_to_top";
+  cutoff,
+  maxdim,
+)
   tn = rot180(tn)
   tn = reverse(tn; dims=2)
-  boundary_mps_top = contract_approx(tn, alg, BoundaryMPSDir"top_to_bottom"(); cutoff=cutoff, maxdim=maxdim)
-  return BoundaryMPS(bottom=reverse(boundary_mps_top.top))
+  boundary_mps_top = contract_approx(
+    tn, alg, BoundaryMPSDir"top_to_bottom"(); cutoff=cutoff, maxdim=maxdim
+  )
+  return BoundaryMPS(; bottom=reverse(boundary_mps_top.top))
 end
 
-function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps",
-                         dirs::BoundaryMPSDir"left_to_right"; cutoff, maxdim)
+function contract_approx(
+  tn::Matrix{ITensor},
+  alg::ContractionAlgorithm"boundary_mps",
+  dirs::BoundaryMPSDir"left_to_right";
+  cutoff,
+  maxdim,
+)
   tn = rotr90(tn)
-  boundary_mps = contract_approx(tn, alg, BoundaryMPSDir"top_to_bottom"(); cutoff=cutoff, maxdim=maxdim)
-  return BoundaryMPS(left=boundary_mps.top)
+  boundary_mps = contract_approx(
+    tn, alg, BoundaryMPSDir"top_to_bottom"(); cutoff=cutoff, maxdim=maxdim
+  )
+  return BoundaryMPS(; left=boundary_mps.top)
 end
 
-function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps",
-                         dirs::BoundaryMPSDir"right_to_left"; cutoff, maxdim)
+function contract_approx(
+  tn::Matrix{ITensor},
+  alg::ContractionAlgorithm"boundary_mps",
+  dirs::BoundaryMPSDir"right_to_left";
+  cutoff,
+  maxdim,
+)
   tn = rotr90(tn)
-  boundary_mps = contract_approx(tn, alg, BoundaryMPSDir"bottom_to_top"(); cutoff=cutoff, maxdim=maxdim)
-  return BoundaryMPS(right=boundary_mps.bottom)
+  boundary_mps = contract_approx(
+    tn, alg, BoundaryMPSDir"bottom_to_top"(); cutoff=cutoff, maxdim=maxdim
+  )
+  return BoundaryMPS(; right=boundary_mps.bottom)
 end
 
-function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps",
-                         dirs::BoundaryMPSDir"all"; cutoff, maxdim)
-  mps_top = contract_approx(tn, alg, BoundaryMPSDir"top_to_bottom"(); cutoff=cutoff, maxdim=maxdim)
-  mps_bottom = contract_approx(tn, alg, BoundaryMPSDir"bottom_to_top"(); cutoff=cutoff, maxdim=maxdim)
-  mps_left = contract_approx(tn, alg, BoundaryMPSDir"left_to_right"(); cutoff=cutoff, maxdim=maxdim)
-  mps_right = contract_approx(tn, alg, BoundaryMPSDir"right_to_left"(); cutoff=cutoff, maxdim=maxdim)
-  return BoundaryMPS(top=mps_top.top, bottom=mps_bottom.bottom, left=mps_left.left, right=mps_right.right)
+function contract_approx(
+  tn::Matrix{ITensor},
+  alg::ContractionAlgorithm"boundary_mps",
+  dirs::BoundaryMPSDir"all";
+  cutoff,
+  maxdim,
+)
+  mps_top = contract_approx(
+    tn, alg, BoundaryMPSDir"top_to_bottom"(); cutoff=cutoff, maxdim=maxdim
+  )
+  mps_bottom = contract_approx(
+    tn, alg, BoundaryMPSDir"bottom_to_top"(); cutoff=cutoff, maxdim=maxdim
+  )
+  mps_left = contract_approx(
+    tn, alg, BoundaryMPSDir"left_to_right"(); cutoff=cutoff, maxdim=maxdim
+  )
+  mps_right = contract_approx(
+    tn, alg, BoundaryMPSDir"right_to_left"(); cutoff=cutoff, maxdim=maxdim
+  )
+  return BoundaryMPS(;
+    top=mps_top.top, bottom=mps_bottom.bottom, left=mps_left.left, right=mps_right.right
+  )
 end
 
-function contract_approx(tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps";
-                         dirs, cutoff, maxdim)
+function contract_approx(
+  tn::Matrix{ITensor}, alg::ContractionAlgorithm"boundary_mps"; dirs, cutoff, maxdim
+)
   return contract_approx(tn, alg, BoundaryMPSDir(dirs); cutoff=cutoff, maxdim=maxdim)
 end
 
 # Compute the truncation projectors for the network,
 # contracting from top to bottom
-function contract_approx(tn::Matrix{ITensor}; alg="boundary_mps",
-                         dirs="all", cutoff=1e-8, maxdim=maxdim_arg(tn))
-  return contract_approx(tn, ContractionAlgorithm(alg); dirs=dirs, cutoff=cutoff, maxdim=maxdim)
+function contract_approx(
+  tn::Matrix{ITensor}; alg="boundary_mps", dirs="all", cutoff=1e-8, maxdim=maxdim_arg(tn)
+)
+  return contract_approx(
+    tn, ContractionAlgorithm(alg); dirs=dirs, cutoff=cutoff, maxdim=maxdim
+  )
 end
 
-function insert_projectors(tn::Matrix{ITensor}, boundary_mps::Vector{MPS}; dirs, projector_center)
-  return insert_projectors(tn, boundary_mps, BoundaryMPSDir(dirs); projector_center=projector_center)
+function insert_projectors(
+  tn::Matrix{ITensor}, boundary_mps::Vector{MPS}; dirs, projector_center
+)
+  return insert_projectors(
+    tn, boundary_mps, BoundaryMPSDir(dirs); projector_center=projector_center
+  )
 end
 
 get_itensor(x::MPS, n::Int) = n in 1:length(x) ? x[n] : ITensor()
@@ -447,8 +524,12 @@ function split_network(tn::Matrix{ITensor}; projector_center=default_projector_c
   return tn_split
 end
 
-function insert_projectors(tn::Matrix{ITensor}, boundary_mps::Vector{MPS},
-                           dirs::BoundaryMPSDir"top_to_bottom"; projector_center)
+function insert_projectors(
+  tn::Matrix{ITensor},
+  boundary_mps::Vector{MPS},
+  dirs::BoundaryMPSDir"top_to_bottom";
+  projector_center,
+)
   nrows, ncols = size(tn)
   @assert length(boundary_mps) == nrows - 1
   @assert all(x -> length(x) == ncols, boundary_mps)
@@ -487,8 +568,12 @@ function insert_projectors(tn, boundary_mps::BoundaryMPS; center, projector_cent
   boundary_mps_bottom = top_bottom ? boundary_mps.bottom : boundary_mps.right
 
   # Insert approximate projectors into rows of the network
-  boundary_mps_tot = vcat(boundary_mps_top[1:(center_row - 1)], dag.(boundary_mps_bottom[center_row:end]))
-  tn_split, projectors_left, projectors_right = insert_projectors(tn, boundary_mps_tot; dirs="top_to_bottom", projector_center=projector_center)
+  boundary_mps_tot = vcat(
+    boundary_mps_top[1:(center_row - 1)], dag.(boundary_mps_bottom[center_row:end])
+  )
+  tn_split, projectors_left, projectors_right = insert_projectors(
+    tn, boundary_mps_tot; dirs="top_to_bottom", projector_center=projector_center
+  )
 
   if !top_bottom
     tn_split = rotl90(tn_split)
@@ -519,11 +604,19 @@ function insert_projectors(tn; center, projector_center=nothing, maxdim, cutoff)
 
   # Approximately contract the tensor network.
   # Outputs a Vector of boundary MPS.
-  boundary_mps_top = contract_approx(tn; alg="boundary_mps", dirs="top_to_bottom", cutoff=cutoff, maxdim=maxdim)
-  boundary_mps_bottom = contract_approx(tn; alg="boundary_mps", dirs="bottom_to_top", cutoff=cutoff, maxdim=maxdim)
+  boundary_mps_top = contract_approx(
+    tn; alg="boundary_mps", dirs="top_to_bottom", cutoff=cutoff, maxdim=maxdim
+  )
+  boundary_mps_bottom = contract_approx(
+    tn; alg="boundary_mps", dirs="bottom_to_top", cutoff=cutoff, maxdim=maxdim
+  )
   # Insert approximate projectors into rows of the network
-  boundary_mps = vcat(boundary_mps_top[1:(center_row - 1)], dag.(boundary_mps_bottom[center_row:end]))
-  tn_split, projectors_left, projectors_right = insert_projectors(tn, boundary_mps; dirs="top_to_bottom", projector_center=projector_center)
+  boundary_mps = vcat(
+    boundary_mps_top[1:(center_row - 1)], dag.(boundary_mps_bottom[center_row:end])
+  )
+  tn_split, projectors_left, projectors_right = insert_projectors(
+    tn, boundary_mps; dirs="top_to_bottom", projector_center=projector_center
+  )
 
   if !top_bottom
     tn_split = rotl90(tn_split)
@@ -556,8 +649,12 @@ function mapinds(f, ::typeof(linkinds), tn)
   return tn′
 end
 
-ITensors.prime(::typeof(linkinds), tn, args...) = mapinds(x -> prime(x, args...), linkinds, tn)
-ITensors.addtags(::typeof(linkinds), tn, args...) = mapinds(x -> addtags(x, args...), linkinds, tn)
+function ITensors.prime(::typeof(linkinds), tn, args...)
+  return mapinds(x -> prime(x, args...), linkinds, tn)
+end
+function ITensors.addtags(::typeof(linkinds), tn, args...)
+  return mapinds(x -> addtags(x, args...), linkinds, tn)
+end
 
 # Return a dictionary from a site to a combiner
 function combiners(::typeof(linkinds), tn)
@@ -667,7 +764,12 @@ function boundary_mps(tn::NamedTuple)
   _boundary_mps_bottom = boundary_mps_bottom(tn.bottom)
   _boundary_mps_left = boundary_mps_left(tn.left)
   _boundary_mps_right = boundary_mps_right(tn.right)
-  return BoundaryMPS(top=_boundary_mps_top, bottom=_boundary_mps_bottom, left=_boundary_mps_left, right=_boundary_mps_right)
+  return BoundaryMPS(;
+    top=_boundary_mps_top,
+    bottom=_boundary_mps_bottom,
+    left=_boundary_mps_left,
+    right=_boundary_mps_right,
+  )
 end
 
 # Return a network that when contracted equals the
@@ -712,4 +814,3 @@ function sqnorm_approx(ψ::Matrix{ITensor}; center, cutoff, maxdim)
   Pr_flat = reduce(vcat, Pr)
   return mapreduce(vec, vcat, (ψᴴ_split, ψ′_split, Pl_flat, Pr_flat))
 end
-

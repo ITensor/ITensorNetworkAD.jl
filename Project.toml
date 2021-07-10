@@ -1,6 +1,6 @@
 name = "ITensorNetworkAD"
 uuid = "79b97fc6-f224-48a6-bc79-3a561f8ff86d"
-authors = ["Matthew Fishman <mfishman@flatironinstitute.org> and contributors"]
+authors = ["Matthew Fishman <mfishman@flatironinstitute.org>", "Linjian Ma <lma16@illinois.edu>"]
 version = "0.0.1"
 
 [deps]

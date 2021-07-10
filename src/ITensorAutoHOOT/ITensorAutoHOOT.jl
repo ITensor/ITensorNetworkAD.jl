@@ -1,3 +1,3 @@
 @reexport module ITensorAutoHOOT
-  # ITensor-AutoHOOT interface code goes here
+# ITensor-AutoHOOT interface code goes here
 end

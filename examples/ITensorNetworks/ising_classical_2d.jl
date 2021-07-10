@@ -2,7 +2,8 @@ using ITensors
 using ITensorNetworkAD
 using ITensorsVisualization
 
-using ITensorNetworkAD.ITensorNetworks: inds_network, project_boundary, contract_approx, insert_projectors
+using ITensorNetworkAD.ITensorNetworks:
+  inds_network, project_boundary, contract_approx, insert_projectors
 using ITensorNetworkAD.ITensorNetworks: Models
 
 model = Models.Model"ising"()
@@ -46,7 +47,7 @@ Pr_flat = reduce(vcat, Pr)
 tn_projected_flat = mapreduce(vec, vcat, (tn_split, Pl_flat, Pr_flat))
 
 @show noncommoninds(tn_projected_flat...)
-@visualize *(tn_projected_flat...) contract=false pause=true
+@visualize *(tn_projected_flat...) contract = false pause = true
 
 @disable_warn_order begin
   @show contract(tn_projected_flat)[] / contract(vec(tn))[]
@@ -67,9 +68,8 @@ Pr_flat = reduce(vcat, Pr)
 tn_projected_flat = mapreduce(vec, vcat, (tn_split, Pl_flat, Pr_flat))
 
 @show noncommoninds(tn_projected_flat...)
-@visualize *(tn_projected_flat...) contract=false
+@visualize *(tn_projected_flat...) contract = false
 
 @disable_warn_order begin
   @show contract(tn_projected_flat)[] / contract(vec(tn))[]
 end
-

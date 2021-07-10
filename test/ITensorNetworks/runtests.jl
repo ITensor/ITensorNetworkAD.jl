@@ -2,7 +2,14 @@ using ITensors
 using ITensorNetworkAD
 using Test
 
-using ITensorNetworkAD.ITensorNetworks: Models, inds_network, project_boundary, contract_approx, insert_projectors, sqnorm, sqnorm_approx
+using ITensorNetworkAD.ITensorNetworks:
+  Models,
+  inds_network,
+  project_boundary,
+  contract_approx,
+  insert_projectors,
+  sqnorm,
+  sqnorm_approx
 
 @testset "ITensorNetworks.jl" begin
   model = Models.Model"ising"()
@@ -104,4 +111,3 @@ end
     @test contract(sqnormψ_approx)[] / contract(sqnormψ)[] ≈ 1.0
   end
 end
-
