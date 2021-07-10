@@ -21,6 +21,16 @@ jobs:
           - x64
     steps:
       - uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install the AutoHOOT Python library, its dependencies and set path.
+        run: |
+          git clone https://github.com/LinjianMa/AutoHOOT.git
+          cd AutoHOOT
+          python -m pip install --upgrade pip
+          pip install .
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
@@ -35,6 +45,12 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
+      - name: Install AutoHOOT Julia library
+        run: |
+          julia --project=AutoHOOT -e '
+            using Pkg
+            Pkg.build("PyCall")
+            Pkg.add("https://github.com/LinjianMa/AutoHOOT.jl.git")'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
