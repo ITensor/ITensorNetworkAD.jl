@@ -4,7 +4,7 @@ CurrentModule = ITensorNetworkAD
 
 # ITensorNetworkAD
 
-Documentation for [ITensorNetworkAD](https://github.com/mtfishman/ITensorNetworkAD.jl).
+Documentation for [ITensorNetworkAD](https://github.com/ITensor/ITensorNetworkAD.jl).
 
 ```@index
 ```

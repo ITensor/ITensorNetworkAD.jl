@@ -18,4 +18,6 @@ makedocs(;
   pages=["Home" => "index.md"],
 )
 
-deploydocs(; repo="github.com/itensor/ITensorNetworkAD.jl", devbranch="main")
+deploydocs(;
+  repo="github.com/ITensor/ITensorNetworkAD.jl.git", devbranch="main", push_preview=true
+)
