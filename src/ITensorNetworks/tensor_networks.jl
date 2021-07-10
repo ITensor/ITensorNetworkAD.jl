@@ -124,7 +124,7 @@ function inds_network(
 ) where {N}
   dims = size(site_inds)
   lattice = HyperCubic(dims)
-  linkinds_dict = linkinds(lattice; linkdims, addtags)
+  linkinds_dict = linkinds(lattice; linkdims=linkdims, addtags=addtags)
   inds = Array{Vector{Index{typeof(linkdims)}},N}(undef, dims)
   for n in sites(lattice)
     inds_n = [
@@ -136,7 +136,7 @@ function inds_network(
 end
 
 function itensor_network(dims::Int...; linkdims)
-  return ITensor.(inds_network(dims...; linkdims))
+  return ITensor.(inds_network(dims...; linkdims=linkdims))
 end
 
 function onehot_tuple(n::Integer, length::Val{N}) where {N}
