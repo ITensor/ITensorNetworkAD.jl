@@ -1,4 +1,5 @@
 [deps]
+AutoHOOT = "0bdf4f06-f75d-419a-8d6b-4ad79dc3c0f5"
 ChainRulesTestUtils = "cdddcdb0-9152-4a09-a978-84456f9df70a"
 FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
