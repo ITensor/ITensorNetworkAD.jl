@@ -3,6 +3,10 @@
 using ChainRulesCore
 using ITensors
 
+# TODO: move to ITensors.jl.
+# Useful for generic code.
+ITensors.dag(n::Number) = conj(n)
+
 # Needed for defining the rule for `adjoint(A::ITensor)`
 # which currently doesn't work by overloading `ChainRulesCore.rrule`
 using ZygoteRules: @adjoint
@@ -86,8 +90,8 @@ end
 end
 
 function _contract_pullback(ȳ, x1, x2)
-  x̄1 = ȳ * x2
-  x̄2 = x1 * ȳ
+  x̄1 = ȳ * dag(x2)
+  x̄2 = dag(x1) * ȳ
   return (NoTangent(), x̄1, x̄2)
 end
 
@@ -125,7 +129,7 @@ function ChainRulesCore.rrule(::typeof(*), x1::ITensor, x2::ITensor, xs::ITensor
       env_left = isempty(tn_left) ? ITensor(1.0) : contract(tn_left)
       tn_right = tn[reverse((n + 1):end)]
       env_right = isempty(tn_right) ? ITensor(1.0) : contract(tn_right)
-      env_contracted[n] = env_left * ȳ * env_right
+      env_contracted[n] = dag(env_left) * ȳ * dag(env_right)
     end
     return (NoTangent(), env_contracted...)
   end

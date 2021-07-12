@@ -98,103 +98,120 @@ end
 
   f = x -> sin(scalar(x)^3)
   args = (C,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> sin(x[]^3)
   args = (C,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = adjoint
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = (x, y) -> (x * y)[1, 1]
   args = (A', A)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> prime(x, 2)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> x'[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> addtags(x, "x")[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x' * x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (prime(x) * x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> ((x'' * x') * x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x'' * (x' * x))[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = (x, y, z) -> (x * y * z)[1, 1]
   args = (A'', A', A)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x'' * x' * x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x''' * x'' * x' * x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x''' * x'' * x' * x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = (x, y) -> (x + y)[1, 1]
   args = (A, B)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x + x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (2x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x + 2x)[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x + 2 * mapprime(x' * x, 2 => 1))[1, 1]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = (x, y) -> (x * y)[]
   args = (A, δ(dag(inds(A))))
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x * x)[]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x * δ(dag(inds(x))))[]
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = function (x)
     y = x' * x
     tr = δ(dag(inds(y)))
     return (y * tr)[]
   end
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = function (x)
     y = x'' * x' * x
     tr = δ(dag(inds(y)))
     return (y * tr)[]
   end
   args = (A,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x^2 * δ((i', i)))[1, 1]
   args = (6.2,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x^2 * δ(i', i))[1, 1]
   args = (5.2,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> itensor([x^2 x; x^3 x^4], i', i)
   args = (2.54,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> ITensor([x^2 x; x^3 x^4], i', i)
   args = (2.1,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> ITensor(x)
   args = (2.12,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
-  f = x -> (j = Index(2); T = itensor([x^2 sin(x); x^2 exp(-2x)], j', dag(j)); (dag(T) * T)[])
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  f =
+    x -> (
+      j = Index(2); T = itensor([x^2 sin(x); x^2 exp(-2x)], j', dag(j)); real(
+        (dag(T) * T)[]
+      )
+    )
   args = (2.8,)
-  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  args = (2.8 + 3.1im,)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  f = function f(x)
+    j = Index(2)
+    v = itensor([exp(-3.2x), cos(2x^2)], j)
+    T = itensor([x^2 sin(x); x^2 exp(-2x)], j', dag(j))
+    return real((dag(v') * T * v)[])
+  end
+  args = (2.8,)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  args = (2.8 + 3.1im,)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
 end
