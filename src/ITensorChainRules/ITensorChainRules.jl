@@ -36,7 +36,11 @@ function setinds_pullback(ȳ, x, a...)
   return (NoTangent(), x̄, ā...)
 end
 
-inv_op(f::Function, args...) = error("The inverse of the operation (`inv_op`) for function `$f` and arguments $args not defined.")
+function inv_op(f::Function, args...)
+  return error(
+    "The inverse of the operation (`inv_op`) for function `$f` and arguments $args not defined.",
+  )
+end
 
 function inv_op(::typeof(prime), x::ITensor, n::Integer=1)
   return prime(x, -n)

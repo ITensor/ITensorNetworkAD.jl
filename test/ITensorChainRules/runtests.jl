@@ -58,7 +58,9 @@ function FiniteDifferences.rand_tangent(rng::AbstractRNG, x::Tuple{Vararg{Index}
   return NoTangent()
 end
 
-function FiniteDifferences.rand_tangent(rng::AbstractRNG, x::Pair{<:Tuple{Vararg{Index}},<:Tuple{Vararg{Index}}})
+function FiniteDifferences.rand_tangent(
+  rng::AbstractRNG, x::Pair{<:Tuple{Vararg{Index}},<:Tuple{Vararg{Index}}}
+)
   return NoTangent()
 end
 
@@ -103,7 +105,9 @@ end
   test_rrule(addtags, A, "x"; check_inferred=false)
   test_rrule(removetags, A, "i"; check_inferred=false)
   test_rrule(replacetags, A, "i" => "j"; check_inferred=false)
-  test_rrule(swaptags, randomITensor(Index(2, "i"), Index(2, "j")), "i" => "j"; check_inferred=false)
+  test_rrule(
+    swaptags, randomITensor(Index(2, "i"), Index(2, "j")), "i" => "j"; check_inferred=false
+  )
   test_rrule(replaceind, A, i' => sim(i); check_inferred=false)
   test_rrule(replaceinds, A, (i, i') => (sim(i), sim(i)); check_inferred=false)
   test_rrule(swapind, A, i', i; check_inferred=false)
