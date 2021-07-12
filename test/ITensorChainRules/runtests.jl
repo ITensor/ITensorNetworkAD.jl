@@ -194,12 +194,11 @@ end
   f = x -> ITensor(x)
   args = (2.12,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
-  f =
-    x -> (
-      j = Index(2); T = itensor([x^2 sin(x); x^2 exp(-2x)], j', dag(j)); real(
-        (dag(T) * T)[]
-      )
-    )
+  f = function (x)
+    j = Index(2)
+    T = itensor([x^2 sin(x); x^2 exp(-2x)], j', dag(j))
+    return real((dag(T) * T)[])
+  end
   args = (2.8,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   args = (2.8 + 3.1im,)

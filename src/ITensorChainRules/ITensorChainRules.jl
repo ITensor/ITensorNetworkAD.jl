@@ -7,9 +7,7 @@ using ITensors
 # Useful for generic code.
 ITensors.dag(n::Number) = conj(n)
 
-# Needed for defining the rule for `adjoint(A::ITensor)`
-# which currently doesn't work by overloading `ChainRulesCore.rrule`
-using ZygoteRules: @adjoint
+include("zygoterules.jl")
 
 function ChainRulesCore.rrule(::typeof(getindex), x::ITensor, I...)
   y = getindex(x, I...)
@@ -80,25 +78,12 @@ end
 #  return y, adjoint_pullback
 #end
 
-@adjoint function Base.adjoint(x::ITensor)
-  y = prime(x)
-  function setinds_pullback(ȳ)
-    x̄ = ITensors.setinds(ȳ, inds(x))
-    return (x̄,)
-  end
-  return y, setinds_pullback
-end
-
-function _contract_pullback(ȳ, x1, x2)
-  x̄1 = ȳ * dag(x2)
-  x̄2 = dag(x1) * ȳ
-  return (NoTangent(), x̄1, x̄2)
-end
-
 function _rrule(::typeof(*), x1, x2)
   y = x1 * x2
   function contract_pullback(ȳ)
-    return _contract_pullback(ȳ, x1, x2)
+    x̄1 = ȳ * dag(x2)
+    x̄2 = dag(x1) * ȳ
+    return (NoTangent(), x̄1, x̄2)
   end
   return y, contract_pullback
 end
