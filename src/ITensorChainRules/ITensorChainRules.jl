@@ -20,6 +20,18 @@ function ChainRulesCore.rrule(::typeof(getindex), x::ITensor, I...)
   return y, getindex_pullback
 end
 
+# Specialized version in order to avoid call to `setindex!`
+# within the pullback, should be better for taking higher order
+# derivatives in Zygote.
+function ChainRulesCore.rrule(::typeof(getindex), x::ITensor)
+  y = x[]
+  function getindex_pullback(ȳ)
+    x̄ = ITensor(ȳ)
+    return (NoTangent(), x̄)
+  end
+  return y, getindex_pullback
+end
+
 function setinds_pullback(ȳ, x, a...)
   x̄ = ITensors.setinds(ȳ, inds(x))
   ā = broadcast(_ -> NoTangent(), a)
