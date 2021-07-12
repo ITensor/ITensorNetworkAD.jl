@@ -170,6 +170,15 @@ function ChainRulesCore.rrule(::typeof(ITensor), x::Number)
   return y, ITensor_pullback
 end
 
+function ChainRulesCore.rrule(::typeof(dag), x::ITensor)
+  y = dag(x)
+  function dag_pullback(ȳ)
+    x̄ = dag(ȳ)
+    return (NoTangent(), x̄)
+  end
+  return y, dag_pullback
+end
+
 @non_differentiable Index(::Any...)
 @non_differentiable delta(::Any...)
 @non_differentiable dag(::Index)

@@ -32,6 +32,11 @@ function FiniteDifferences.to_vec(A::ITensor)
   end
   return vec(array(A)), vec_to_ITensor
 end
+
+function FiniteDifferences.to_vec(x::Index)
+  return (Bool[], _ -> x)
+end
+
 function FiniteDifferences.rand_tangent(rng::AbstractRNG, A::ITensor)
   # TODO: generalize to sparse tensors
   return isempty(inds(A)) ? ITensor(randn(eltype(A))) : randomITensor(eltype(A), inds(A))
@@ -89,6 +94,7 @@ end
   test_rrule(itensor, randn(2, 2), i', i; check_inferred=false)
   test_rrule(ITensor, randn(2, 2), i', i; check_inferred=false)
   test_rrule(ITensor, 2.3; check_inferred=false)
+  test_rrule(dag, A; check_inferred=false)
 
   f = x -> sin(scalar(x)^3)
   args = (C,)
@@ -174,18 +180,21 @@ end
   args = (A,)
   test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x^2 * δ((i', i)))[1, 1]
-  args = (2.2,)
+  args = (6.2,)
   test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> (x^2 * δ(i', i))[1, 1]
-  args = (2.2,)
+  args = (5.2,)
   test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> itensor([x^2 x; x^3 x^4], i', i)
-  args = (2.3,)
+  args = (2.54,)
   test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> ITensor([x^2 x; x^3 x^4], i', i)
-  args = (2.3,)
+  args = (2.1,)
   test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> ITensor(x)
-  args = (2.3,)
+  args = (2.12,)
+  test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
+  f = x -> (j = Index(2); T = itensor([x^2 sin(x); x^2 exp(-2x)], j', dag(j)); (dag(T) * T)[])
+  args = (2.8,)
   test_rrule(ZygoteRuleConfig(), f, args..., rrule_f=rrule_via_ad, check_inferred=false)
 end
