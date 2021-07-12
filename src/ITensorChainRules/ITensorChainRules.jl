@@ -36,6 +36,52 @@ function setinds_pullback(ȳ, x, a...)
   return (NoTangent(), x̄, ā...)
 end
 
+inv_op(f::Function, args...) = error("The inverse of the operation (`inv_op`) for function `$f` and arguments $args not defined.")
+
+function inv_op(::typeof(prime), x::ITensor, n::Integer=1)
+  return prime(x, -n)
+end
+
+function inv_op(::typeof(replaceprime), x::ITensor, n1n2::Pair)
+  return replaceprime(x, reverse(n1n2))
+end
+
+function inv_op(::typeof(swapprime), x::ITensor, n1n2::Pair)
+  return swapprime(x, reverse(n1n2))
+end
+
+function inv_op(::typeof(addtags), x::ITensor, args...)
+  return removetags(x, args...)
+end
+
+function inv_op(::typeof(removetags), x::ITensor, args...)
+  return addtags(x, args...)
+end
+
+function inv_op(::typeof(replacetags), x::ITensor, n1n2::Pair)
+  return replacetags(x, reverse(n1n2))
+end
+
+function inv_op(::typeof(swaptags), x::ITensor, n1n2::Pair)
+  return swaptags(x, reverse(n1n2))
+end
+
+function inv_op(::typeof(replaceind), x::ITensor, n1n2::Pair)
+  return replaceind(x, reverse(n1n2))
+end
+
+function inv_op(::typeof(replaceinds), x::ITensor, n1n2::Pair)
+  return replaceinds(x, reverse(n1n2))
+end
+
+function inv_op(::typeof(swapind), x::ITensor, args...)
+  return swapind(x, reverse(args)...)
+end
+
+function inv_op(::typeof(swapinds), x::ITensor, args...)
+  return swapinds(x, reverse(args)...)
+end
+
 for fname in (
   :prime,
   :setprime,
@@ -53,10 +99,12 @@ for fname in (
   :swapinds,
 )
   @eval begin
-    function ChainRulesCore.rrule(::typeof($fname), x::ITensor, a...)
-      y = $fname(x, a...)
+    function ChainRulesCore.rrule(f::typeof($fname), x::ITensor, a...)
+      y = f(x, a...)
       function f_pullback(ȳ)
-        return setinds_pullback(ȳ, x, a...)
+        x̄ = inv_op(f, ȳ, a...)
+        ā = broadcast(_ -> NoTangent(), a)
+        return (NoTangent(), x̄, ā...)
       end
       return y, f_pullback
     end

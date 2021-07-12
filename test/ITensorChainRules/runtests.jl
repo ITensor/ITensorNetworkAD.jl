@@ -32,6 +32,14 @@ function FiniteDifferences.to_vec(x::Index)
   return (Bool[], _ -> x)
 end
 
+function FiniteDifferences.to_vec(x::Tuple{Vararg{Index}})
+  return (Bool[], _ -> x)
+end
+
+function FiniteDifferences.to_vec(x::Pair{<:Tuple{Vararg{Index}},<:Tuple{Vararg{Index}}})
+  return (Bool[], _ -> x)
+end
+
 function FiniteDifferences.rand_tangent(rng::AbstractRNG, A::ITensor)
   # TODO: generalize to sparse tensors
   return isempty(inds(A)) ? ITensor(randn(eltype(A))) : randomITensor(eltype(A), inds(A))
@@ -43,6 +51,14 @@ function FiniteDifferences.rand_tangent(rng::AbstractRNG, A::Tensor)
 end
 
 function FiniteDifferences.rand_tangent(rng::AbstractRNG, x::Index)
+  return NoTangent()
+end
+
+function FiniteDifferences.rand_tangent(rng::AbstractRNG, x::Tuple{Vararg{Index}})
+  return NoTangent()
+end
+
+function FiniteDifferences.rand_tangent(rng::AbstractRNG, x::Pair{<:Tuple{Vararg{Index}},<:Tuple{Vararg{Index}}})
   return NoTangent()
 end
 
@@ -69,7 +85,7 @@ function ChainRulesTestUtils.test_approx(
 end
 
 @testset "ITensorChainRules.jl" begin
-  i = Index(2)
+  i = Index(2, "i")
   A = randomITensor(i', dag(i))
   B = randomITensor(i', dag(i))
   C = ITensor(3.4)
@@ -82,10 +98,16 @@ end
   test_rrule(+, A, B; check_inferred=false)
   test_rrule(prime, A; check_inferred=false)
   test_rrule(prime, A, 2; check_inferred=false)
-  test_rrule(addtags, A, "i"; check_inferred=false)
-  test_rrule(settags, A, "x,y"; check_inferred=false)
-  # XXX: broken with some ambiguity error in ChainRulesTestUtils
-  #test_rrule(delta, (i', i); check_inferred=false)
+  test_rrule(replaceprime, A, 1 => 2; check_inferred=false)
+  test_rrule(swapprime, A, 0 => 1; check_inferred=false)
+  test_rrule(addtags, A, "x"; check_inferred=false)
+  test_rrule(removetags, A, "i"; check_inferred=false)
+  test_rrule(replacetags, A, "i" => "j"; check_inferred=false)
+  test_rrule(swaptags, randomITensor(Index(2, "i"), Index(2, "j")), "i" => "j"; check_inferred=false)
+  test_rrule(replaceind, A, i' => sim(i); check_inferred=false)
+  test_rrule(replaceinds, A, (i, i') => (sim(i), sim(i)); check_inferred=false)
+  test_rrule(swapind, A, i', i; check_inferred=false)
+  test_rrule(swapinds, A, (i',), (i,); check_inferred=false)
   test_rrule(itensor, randn(2, 2), i', i; check_inferred=false)
   test_rrule(ITensor, randn(2, 2), i', i; check_inferred=false)
   test_rrule(ITensor, 2.3; check_inferred=false)

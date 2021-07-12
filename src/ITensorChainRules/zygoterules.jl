@@ -5,9 +5,9 @@ using ZygoteRules: @adjoint
 
 @adjoint function Base.adjoint(x::ITensor)
   y = prime(x)
-  function setinds_pullback(ȳ)
-    x̄ = ITensors.setinds(ȳ, inds(x))
+  function adjoint_pullback(ȳ)
+    x̄ = inv_op(prime, ȳ)
     return (x̄,)
   end
-  return y, setinds_pullback
+  return y, adjoint_pullback
 end
