@@ -14,11 +14,6 @@ using Zygote: ZygoteRuleConfig
 # ITensor extensions
 #
 
-# TODO: this is to fix an error within `ChainRulesTestUtils._test_add!!_behaviour`
-# that gets called in `test_rrule`. Is this needed/a good definition?
-Base.:+(x::Number, y::ITensor) = ITensor(x) + y
-Base.:+(x::ITensor, y::Number) = x + ITensor(y)
-
 #
 # For ITensor compatibility with FiniteDifferences
 #
@@ -212,5 +207,11 @@ end
   args = (2.8,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   args = (2.8 + 3.1im,)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  f = function (x)
+    j = Index(2)
+    return real((x^3 * ITensor([sin(x) exp(-2x); 3x^3 x+x^2], j', dag(j)))[1, 1])
+  end
+  args = (3.4 + 2.3im,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
 end

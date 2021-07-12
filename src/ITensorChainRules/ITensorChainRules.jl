@@ -1,11 +1,7 @@
-@reexport module ITensorChainRules
+module ITensorChainRules
 
 using ChainRulesCore
 using ITensors
-
-# TODO: move to ITensors.jl.
-# Useful for generic code.
-ITensors.dag(n::Number) = conj(n)
 
 include("zygoterules.jl")
 
@@ -78,7 +74,8 @@ end
 #  return y, adjoint_pullback
 #end
 
-function _rrule(::typeof(*), x1, x2)
+# Special case for contracting a pair of ITensors
+function ChainRulesCore.rrule(::typeof(*), x1::ITensor, x2::ITensor)
   y = x1 * x2
   function contract_pullback(ȳ)
     x̄1 = ȳ * dag(x2)
@@ -88,17 +85,25 @@ function _rrule(::typeof(*), x1, x2)
   return y, contract_pullback
 end
 
-# Special case for contracting a pair of ITensors
-function ChainRulesCore.rrule(::typeof(*), x1::ITensor, x2::ITensor)
-  return _rrule(*, x1, x2)
-end
-
 function ChainRulesCore.rrule(::typeof(*), x1::Number, x2::ITensor)
-  return _rrule(*, x1, x2)
+  y = x1 * x2
+  function contract_pullback(ȳ)
+    x̄1 = ȳ * dag(x2)
+    # TODO: define `dag(::Number)` to help with generic code
+    x̄2 = dag(ITensor(x1)) * ȳ
+    return (NoTangent(), x̄1[], x̄2)
+  end
+  return y, contract_pullback
 end
 
 function ChainRulesCore.rrule(::typeof(*), x1::ITensor, x2::Number)
-  return _rrule(*, x1, x2)
+  y = x1 * x2
+  function contract_pullback(ȳ)
+    x̄1 = ȳ * dag(ITensor(x2))
+    x̄2 = dag(x1) * ȳ
+    return (NoTangent(), x̄1, x̄2[])
+  end
+  return y, contract_pullback
 end
 
 function ChainRulesCore.rrule(::typeof(*), x1::ITensor, x2::ITensor, xs::ITensor...)
