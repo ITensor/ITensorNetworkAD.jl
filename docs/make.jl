@@ -8,7 +8,7 @@ DocMeta.setdocmeta!(
 makedocs(;
   modules=[ITensorNetworkAD],
   authors="Matthew Fishman <mfishman@flatironinstitute.org>, Linjian Ma <lma16@illinois.edu>",
-  repo="https://github.com/itensor/ITensorNetworkAD.jl/blob/{commit}{path}#{line}",
+  repo="https://github.com/ITensor/ITensorNetworkAD.jl/blob/{commit}{path}#{line}",
   sitename="ITensorNetworkAD.jl",
   format=Documenter.HTML(;
     prettyurls=get(ENV, "CI", "false") == "true",
