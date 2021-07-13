@@ -108,7 +108,7 @@ end
   function network(A)
     tensor_network = [A, B, C]
     out = itensorah.batch_tensor_contraction([tensor_network], A)
-    return itensorah.scalar(sum(out))
+    return sum(out)[]
   end
   grad_A = gradient(network, A)
   @test isapprox(norm(grad_A), norm(B * C))
@@ -128,7 +128,7 @@ end
     b = prime(a)
     network = [a, H, b]
     inner = itensorah.batch_tensor_contraction([network], network...)
-    return itensorah.scalar(sum(inner))
+    return sum(inner)[]
   end
   grad = gradient(inner, a)
   @test isapprox(norm(grad), norm(2 * H * a))
@@ -138,7 +138,7 @@ end
   A = ITensor(3.0)
   B = ITensor(2.0)
   function add(A, B)
-    return itensorah.scalar(sum([A, B]))
+    return sum([A, B])[]
   end
   grad = gradient(add, A, B)
   @test isapprox(norm(grad[1]), norm(ITensor(1.0)))
@@ -158,7 +158,7 @@ end
   function inner(A)
     networks = [[A, B], [A, C, D, E]]
     contract = itensorah.batch_tensor_contraction(networks, A, B, C, D, E)
-    return itensorah.scalar(sum(contract))
+    return sum(contract)[]
   end
   grad = gradient(inner, A)
   @test isapprox(norm(grad), norm(B + C * D * E))
@@ -174,9 +174,9 @@ end
   B[i => 2, i' => 2] = 3.0
   v = randomITensor(i)
 
-  network(x) = itensorah.scalar((x * B) * prime(x))
+  network(x) = ((x * B) * prime(x))[]
   grad(x) = gradient(network, x)[1]
-  inner(x) = itensorah.scalar((grad(x) * v))
+  inner(x) = (grad(x) * v)[]
   hvp(x) = gradient(inner, x)[1]
 
   hvp_out = hvp(A)
@@ -197,10 +197,10 @@ end
   function network(x)
     xprime = prime(x)
     inner = sum(itensorah.batch_tensor_contraction([[x, xprime, B]], x, xprime))
-    return itensorah.scalar(inner)
+    return inner[]
   end
   grad(x) = gradient(network, x)[1]
-  inner(x) = itensorah.scalar((grad(x) * v))
+  inner(x) = (grad(x) * v)[]
   hvp(x) = gradient(inner, x)[1]
   hvp_out = hvp(A)
   hvp_true = noprime(2 * B * v)

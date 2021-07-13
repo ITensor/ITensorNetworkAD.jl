@@ -41,27 +41,6 @@ end
 
 Base.length(executor::Executor) = Base.length(executor.net_sums)
 
-@adjoint prime(A::ITensor) = prime(A), dA -> (noprime(dA),)
-
-@adjoint noprime(A::ITensor) = noprime(A), dA -> (prime(dA),)
-
-# TODO
-@adjoint function prime(T::ITensor, indices)
-  indsT = inds(T)
-  adjoint_pullback(dT::ITensor) = (setinds(dT, indsT), nothing)
-  return prime(T, indices), adjoint_pullback
-end
-
-scalar(A::ITensor) = ITensors.scalar(A)
-
-@adjoint scalar(A::ITensor) = scalar(A), s -> (ITensor(s),)
-
-@adjoint ITensor(s) = ITensor(s), A -> (scalar(A),)
-
-@adjoint Base.:+(A::ITensor, B::ITensor) = A + B, v -> (v, v)
-
-@adjoint Base.:*(A::ITensor, B::ITensor) = A * B, v -> (v * B, v * A)
-
 function construct_gradient!(net_sum::NetworkSum, innodes::Array, feed_dict::Dict)
   for net in net_sum.nodes
     inputs = ad.get_all_inputs(net)
