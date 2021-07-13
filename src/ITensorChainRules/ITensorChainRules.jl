@@ -36,54 +36,54 @@ function setinds_pullback(ȳ, x, a...)
   return (NoTangent(), x̄, ā...)
 end
 
-function inv_op(f::Function, args...)
+function inv_op(f::Function, args...; kwargs...)
   return error(
-    "The inverse of the operation (`inv_op`) for function `$f` and arguments $args not defined.",
+    "Trying to differentiate `$f` but the inverse of the operation (`inv_op`) `$f` with arguments $args and keyword arguments $kwargs is not defined.",
   )
 end
 
-function inv_op(::typeof(prime), x::ITensor, n::Integer=1)
-  return prime(x, -n)
+function inv_op(::typeof(prime), x::ITensor, n::Integer=1; kwargs...)
+  return prime(x, -n; kwargs...)
 end
 
-function inv_op(::typeof(replaceprime), x::ITensor, n1n2::Pair)
-  return replaceprime(x, reverse(n1n2))
+function inv_op(::typeof(replaceprime), x::ITensor, n1n2::Pair; kwargs...)
+  return replaceprime(x, reverse(n1n2); kwargs...)
 end
 
-function inv_op(::typeof(swapprime), x::ITensor, n1n2::Pair)
-  return swapprime(x, reverse(n1n2))
+function inv_op(::typeof(swapprime), x::ITensor, n1n2::Pair; kwargs...)
+  return swapprime(x, reverse(n1n2); kwargs...)
 end
 
-function inv_op(::typeof(addtags), x::ITensor, args...)
-  return removetags(x, args...)
+function inv_op(::typeof(addtags), x::ITensor, args...; kwargs...)
+  return removetags(x, args...; kwargs...)
 end
 
-function inv_op(::typeof(removetags), x::ITensor, args...)
-  return addtags(x, args...)
+function inv_op(::typeof(removetags), x::ITensor, args...; kwargs...)
+  return addtags(x, args...; kwargs...)
 end
 
-function inv_op(::typeof(replacetags), x::ITensor, n1n2::Pair)
-  return replacetags(x, reverse(n1n2))
+function inv_op(::typeof(replacetags), x::ITensor, n1n2::Pair; kwargs...)
+  return replacetags(x, reverse(n1n2); kwargs...)
 end
 
-function inv_op(::typeof(swaptags), x::ITensor, n1n2::Pair)
-  return swaptags(x, reverse(n1n2))
+function inv_op(::typeof(swaptags), x::ITensor, n1n2::Pair; kwargs...)
+  return swaptags(x, reverse(n1n2); kwargs...)
 end
 
-function inv_op(::typeof(replaceind), x::ITensor, n1n2::Pair)
-  return replaceind(x, reverse(n1n2))
+function inv_op(::typeof(replaceind), x::ITensor, n1n2::Pair; kwargs...)
+  return replaceind(x, reverse(n1n2); kwargs...)
 end
 
-function inv_op(::typeof(replaceinds), x::ITensor, n1n2::Pair)
-  return replaceinds(x, reverse(n1n2))
+function inv_op(::typeof(replaceinds), x::ITensor, n1n2::Pair; kwargs...)
+  return replaceinds(x, reverse(n1n2); kwargs...)
 end
 
-function inv_op(::typeof(swapind), x::ITensor, args...)
-  return swapind(x, reverse(args)...)
+function inv_op(::typeof(swapind), x::ITensor, args...; kwargs...)
+  return swapind(x, reverse(args)...; kwargs...)
 end
 
-function inv_op(::typeof(swapinds), x::ITensor, args...)
-  return swapinds(x, reverse(args)...)
+function inv_op(::typeof(swapinds), x::ITensor, args...; kwargs...)
+  return swapinds(x, reverse(args)...; kwargs...)
 end
 
 for fname in (
@@ -103,10 +103,13 @@ for fname in (
   :swapinds,
 )
   @eval begin
-    function ChainRulesCore.rrule(f::typeof($fname), x::ITensor, a...)
-      y = f(x, a...)
+    function ChainRulesCore.rrule(f::typeof($fname), x::ITensor, a...; kwargs...)
+      y = f(x, a...; kwargs...)
       function f_pullback(ȳ)
-        x̄ = inv_op(f, ȳ, a...)
+        x̄ = inv_op(f, ȳ, a...; kwargs...)
+        if !hassameinds(x, x̄)
+          error("Trying to differentiate function `$f` with arguments $a and keyword arguments $kwargs. The forward pass indices $(inds(x)) do not match the reverse pass indices $(inds(x̄)). Likely this is because the priming/tagging operation you tried to perform is not invertible. Please write your code in a way where the index manipulation operation you are performing is invertible. For example, `prime(A::ITensor)` is invertible, with an inverse `prime(A, -1)`. However, `noprime(A)` is in general not invertible since the information about the prime levels of the original tensor are lost. Instead, you might try `prime(A, -1)` or `replaceprime(A, 1 => 0)` which are invertible.")
+        end
         ā = broadcast(_ -> NoTangent(), a)
         return (NoTangent(), x̄, ā...)
       end
@@ -223,6 +226,16 @@ function ChainRulesCore.rrule(::typeof(dag), x::ITensor)
     return (NoTangent(), x̄)
   end
   return y, dag_pullback
+end
+
+function ChainRulesCore.rrule(::typeof(permute), x::ITensor, a...)
+  y = permute(x, a...)
+  function permute_pullback(ȳ)
+    x̄ = permute(ȳ, inds(x))
+    ā = broadcast(_ -> NoTangent(), a)
+    return (NoTangent(), x̄, ā...)
+  end
+  return y, permute_pullback
 end
 
 @non_differentiable Index(::Any...)
