@@ -1,4 +1,5 @@
 using ITensors
+using ITensorNetworkAD
 using OptimKit
 using Zygote
 using Test

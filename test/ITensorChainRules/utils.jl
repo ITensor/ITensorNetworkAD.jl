@@ -5,9 +5,9 @@ using Random
 
 using ChainRulesCore: NoTangent
 
-#
-# ITensor extensions
-#
+# TODO: maybe move this into ITensorChainRules module?
+# These are useful definitions for testing code. The downside
+# is adding dependencies on FiniteDifferences and ChainRulesTestUtils
 
 #
 # For ITensor compatibility with FiniteDifferences
