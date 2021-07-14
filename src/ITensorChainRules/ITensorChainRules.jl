@@ -12,7 +12,7 @@ function ChainRulesCore.rrule(::typeof(getindex), x::ITensor, I...)
     # to ITensors.jl so no splatting is needed here.
     x̄ = ITensor(inds(x)...)
     x̄[I...] = ȳ
-    Ī = broadcast(_ -> NoTangent(), I)
+    Ī = broadcast_notangent(I)
     return (NoTangent(), x̄, Ī...)
   end
   return y, getindex_pullback
@@ -32,7 +32,7 @@ end
 
 function setinds_pullback(ȳ, x, a...)
   x̄ = ITensors.setinds(ȳ, inds(x))
-  ā = broadcast(_ -> NoTangent(), a)
+  ā = broadcast_notangent(a)
   return (NoTangent(), x̄, ā...)
 end
 
@@ -107,7 +107,7 @@ for fname in (
       y = f(x, a...)
       function f_pullback(ȳ)
         x̄ = inv_op(f, ȳ, a...)
-        ā = broadcast(_ -> NoTangent(), a)
+        ā = broadcast_notangent(a)
         return (NoTangent(), x̄, ā...)
       end
       return y, f_pullback
@@ -190,13 +190,13 @@ function ChainRulesCore.rrule(::typeof(itensor), x::Array, a...)
   y = itensor(x, a...)
   function itensor_pullback(ȳ)
     x̄ = array(ȳ)
-    ā = broadcast(_ -> NoTangent(), a)
+    ā = broadcast_notangent(a)
     return (NoTangent(), x̄, ā...)
   end
   return y, itensor_pullback
 end
 
-function ChainRulesCore.rrule(::typeof(ITensor), x::Array, a...)
+function ChainRulesCore.rrule(::typeof(ITensor), x::Array{<:Number}, a::Index...)
   y = ITensor(x, a...)
   function ITensor_pullback(ȳ)
     # TODO: define `Array(::ITensor)` directly
@@ -225,6 +225,9 @@ function ChainRulesCore.rrule(::typeof(dag), x::ITensor)
   return y, dag_pullback
 end
 
+broadcast_notangent(a) = broadcast(_ -> NoTangent(), a)
+
+@non_differentiable broadcast_notangent(::Any)
 @non_differentiable Index(::Any...)
 @non_differentiable delta(::Any...)
 @non_differentiable dag(::Index)

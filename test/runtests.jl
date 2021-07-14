@@ -2,7 +2,12 @@ using ITensorNetworkAD
 using Test
 
 @testset "ITensorNetworkAD.jl" begin
-  include("ITensorNetworks/runtests.jl")
-  include("ITensorChainRules/runtests.jl")
-  include("ITensorAutoHOOT/runtests.jl")
+  for filename in [
+    "ITensorAutoHOOT/runtests.jl",
+    "ITensorChainRules/runtests.jl",
+    "ITensorNetworks/runtests.jl",
+  ]
+    println("Running $filename")
+    include(filename)
+  end
 end
