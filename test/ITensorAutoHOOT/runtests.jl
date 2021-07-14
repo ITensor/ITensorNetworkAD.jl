@@ -22,7 +22,7 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
   nodes, dict = itensorah.generate_einsum_expr([network])
   network = itensorah.extract_network(nodes[1], dict)
   out2 = network[1] * network[2] * network[3]
-  @test isapprox(storage(out), storage(out2))
+  @test isapprox(out, out2)
 end
 
 @testset "test compute" begin
@@ -46,7 +46,7 @@ end
   out_list = itensorah.compute_graph([node], dict)
   out2 = out_list[1]
 
-  @test isapprox(storage(out), storage(out2))
+  @test isapprox(out, out2)
 end
 
 @testset "test optimal contraction path" begin
@@ -67,7 +67,7 @@ end
   network = itensorah.generate_optimal_tree([A, B, C, D, E])
   out2 = contract(network)
 
-  @test isapprox(storage(out), storage(out2))
+  @test isapprox(out, out2)
 end
 
 @testset "test gradient" begin
@@ -90,8 +90,8 @@ end
   gradA = contract(networks[1])
   gradB = contract(networks[2])
 
-  @test isapprox(norm(gradA_direct), norm(gradA))
-  @test isapprox(norm(gradB_direct), norm(gradB))
+  @test isapprox(gradA_direct, gradA)
+  @test isapprox(gradB_direct, gradB)
 end
 
 @testset "test zygote interface" begin
@@ -108,7 +108,7 @@ end
     return sum(out)[]
   end
   grad_A = gradient(network, A)
-  @test isapprox(norm(grad_A), norm(B * C))
+  @test isapprox(grad_A[1], B * C)
 end
 
 @testset "test zygote interface for inner product" begin
@@ -128,7 +128,7 @@ end
     return sum(inner)[]
   end
   grad = gradient(inner, a)
-  @test isapprox(norm(grad), norm(2 * H * a))
+  @test isapprox((grad[1])', 2 * H * a)
 end
 
 @testset "test zygote interface with sum" begin
@@ -138,7 +138,7 @@ end
     return sum([A, B])[]
   end
   grad = gradient(add, A, B)
-  @test isapprox(norm(grad[1]), norm(ITensor(1.0)))
+  @test isapprox(grad[1], ITensor(1.0))
 end
 
 @testset "test zygote interface with multiple networks" begin
@@ -158,7 +158,7 @@ end
     return sum(contract)[]
   end
   grad = gradient(inner, A)
-  @test isapprox(norm(grad), norm(B + C * D * E))
+  @test isapprox(grad[1], B + C * D * E)
 end
 
 @testset "test simple hvp" begin
@@ -178,7 +178,7 @@ end
 
   hvp_out = hvp(A)
   hvp_true = noprime(2 * B * v)
-  @test isapprox(norm(hvp_out - hvp_true), 0.0)
+  @test isapprox(hvp_out, hvp_true)
 end
 
 @testset "test hvp with batch_tensor_contraction" begin
@@ -201,5 +201,5 @@ end
   hvp(x) = gradient(inner, x)[1]
   hvp_out = hvp(A)
   hvp_true = noprime(2 * B * v)
-  @test isapprox(norm(hvp_out - hvp_true), 0.0)
+  @test isapprox(hvp_out, hvp_true)
 end
