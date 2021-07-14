@@ -14,9 +14,9 @@ N = 20
 s = siteinds("S=1/2", N; conserve_qns=true)
 os = OpSum()
 for n in 1:(N - 1)
-  os .+= 0.5, "S+", n, "S-", n+1
-  os .+= 0.5, "S-", n, "S+", n+1
-  os .+= "Sz", n, "Sz", n+1
+  os .+= 0.5, "S+", n, "S-", n + 1
+  os .+= 0.5, "S-", n, "S+", n + 1
+  os .+= "Sz", n, "Sz", n + 1
 end
 Hmpo = MPO(os, s)
 ψ₀mps = randomMPS(s, n -> isodd(n) ? "↑" : "↓"; linkdims=χ)
@@ -47,7 +47,7 @@ E(ψ) = E(H, ψ)
 ∇E(ψ) = E'(ψ)
 fg(ψ) = (E(ψ), ∇E(ψ))
 
-linesearch = HagerZhangLineSearch(; c₁=.1, c₂=.9, ϵ=1e-6, θ=1/2, γ=2/3, ρ=5.)
+linesearch = HagerZhangLineSearch(; c₁=0.1, c₂=0.9, ϵ=1e-6, θ=1 / 2, γ=2 / 3, ρ=5.0)
 algorithm = LBFGS(5; maxiter=100, gradtol=1e-8, linesearch=linesearch, verbosity=2)
 ψ, fψ, gψ, numfg, normgradhistory = optimize(fg, ψ₀, algorithm)
 
@@ -60,4 +60,3 @@ time_∇Eψ = @elapsed E'(ψ)
 @show time_∇Eψ / time_Eψ;
 @show fψ_dmrg
 @show E(H, ψ)
-

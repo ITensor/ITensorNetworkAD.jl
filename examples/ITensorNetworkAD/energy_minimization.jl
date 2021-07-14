@@ -10,9 +10,9 @@ N = 6
 s = siteinds("S=1/2", N; conserve_qns=true)
 os = OpSum()
 for n in 1:(N - 1)
-  os .+= 0.5, "S+", n, "S-", n+1
-  os .+= 0.5, "S-", n, "S+", n+1
-  os .+= "Sz", n, "Sz", n+1
+  os .+= 0.5, "S+", n, "S-", n + 1
+  os .+= 0.5, "S-", n, "S+", n + 1
+  os .+= "Sz", n, "Sz", n + 1
 end
 Hmpo = MPO(os, s)
 ψ₀mps = randomMPS(s, n -> isodd(n) ? "↑" : "↓")
@@ -32,7 +32,9 @@ E(ψ::ITensor) = E(H, ψ)
 ∇E(ψ::ITensor) = E'(ψ)
 fg(ψ::ITensor) = (E(ψ), ∇E(ψ))
 
-linesearch = HagerZhangLineSearch(; c₁=.1, c₂=.9, ϵ=1e-6, θ=1/2, γ=2/3, ρ=5., verbosity=0)
+linesearch = HagerZhangLineSearch(;
+  c₁=0.1, c₂=0.9, ϵ=1e-6, θ=1 / 2, γ=2 / 3, ρ=5.0, verbosity=0
+)
 algorithm = LBFGS(3; maxiter=30, gradtol=1e-8, linesearch=linesearch)
 ψ, fψ, gψ, numfg, normgradhistory = optimize(fg, ψ₀, algorithm)
 
@@ -42,4 +44,3 @@ display(normgradhistory)
 
 D, _ = eigen(H; ishermitian=true)
 @show minimum(D)
-
