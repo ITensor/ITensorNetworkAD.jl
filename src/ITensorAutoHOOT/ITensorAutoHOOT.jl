@@ -7,6 +7,6 @@ export generate_einsum_expr, generate_network, extract_network, compute_graph, r
 export batch_tensor_contraction, scalar
 
 include("contraction_AD.jl")
-include("zygote.jl")
+include("batch_contraction.jl")
 
 end

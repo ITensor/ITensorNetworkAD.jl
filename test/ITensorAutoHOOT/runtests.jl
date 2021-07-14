@@ -21,11 +21,8 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
 
   nodes, dict = itensorah.generate_einsum_expr([network])
   network = itensorah.extract_network(nodes[1], dict)
-  network2 = itensorah.generate_network(nodes[1], dict)
   out2 = network[1] * network[2] * network[3]
-  out3 = network2[1] * network2[2] * network2[3]
   @test isapprox(storage(out), storage(out2))
-  @test isapprox(storage(out), storage(out3))
 end
 
 @testset "test compute" begin

@@ -15,14 +15,7 @@ end
 Retrieve the key from the dictionary that maps AutoHOOT nodes
 to ITensor tensors. Returns Nothing if key not exists.
 """
-function retrieve_key(dict, value)
-  for (k, v) in dict
-    if v === value
-      return k
-    end
-  end
-  return nothing
-end
+retrieve_key(dict, value) = findfirst(v -> (v === value), dict)
 
 """Compute the computational graph defined in AutoHOOT.
 Parameters
@@ -96,39 +89,6 @@ function inner(n1, n2)
   @assert(n1.shape == n2.shape)
   str = join([get_symbol(i) for i in 1:length(n1.shape)], "")
   return ad.einsum(str * "," * str * "->", n1, n2)
-end
-
-"""Generate ITensor input network based on AutoHOOT einsum expression
-Note: this function generates a network with NEW indices
-Parameters
-----------
-outnode: AutoHOOT einsum node
-node_dict: A dictionary mapping AutoHOOT node to ITensor tensor
-Returns
--------
-A list of ITensor tensors
-"""
-function generate_network(out_node, node_dict)
-  einstr = out_node.einsum_subscripts
-  input_nodes = out_node.inputs
-  str_input, _ = split(einstr, "->")
-  str_in_list = split(str_input, ",")
-
-  tensor_list = []
-  index_dict = Dict{Char,Index{Int64}}()
-  for (i, str) in enumerate(str_in_list)
-    node = input_nodes[i]
-    index_list = []
-    for (j, char) in enumerate(collect(str))
-      if haskey(index_dict, char) == false
-        index_dict[char] = Index(node.shape[j], string(char))
-      end
-      push!(index_list, index_dict[char])
-    end
-    tensor = replaceinds(node_dict[node], inds(node_dict[node]) => index_list)
-    push!(tensor_list, tensor)
-  end
-  return tensor_list
 end
 
 """Generate AutoHOOT einsum expression based on a list of ITensor input networks

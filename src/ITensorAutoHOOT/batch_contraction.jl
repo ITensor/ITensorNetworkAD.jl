@@ -1,12 +1,12 @@
-using Zygote, AutoHOOT
-using Zygote: @adjoint
+using AutoHOOT
+using ChainRulesCore
 using ITensors: setinds
 
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
 
 # represent a sum of tensor networks
-mutable struct NetworkSum
+struct NetworkSum
   nodes::Array
 end
 
@@ -24,7 +24,7 @@ function Executor(networks::Array)
   return Executor(net_sums, node_dict)
 end
 
-@adjoint Executor(networks::Array) = Executor(networks), dv -> (nothing,)
+@non_differentiable Executor(networks::Array)
 
 # TODO: add caching intermediates here
 function run(net_sum::NetworkSum, feed_dict::Dict)
@@ -76,16 +76,16 @@ function vjps(executor::Executor, vars, vector)
   return Executor([network_sum_dict[n] for n in innodes], node_dict)
 end
 
-@adjoint function vjps(executor::Executor, vars, vector)
-  return vjps(executor, vars, vector), de -> (nothing, nothing, nothing)
-end
+@non_differentiable vjps(executor::Executor, vars, vector)
 
 batch_tensor_contraction(executor::Executor, vars...) = run(executor)
 
-@adjoint function batch_tensor_contraction(executor::Executor, vars...)
+function ChainRulesCore.rrule(
+  ::typeof(batch_tensor_contraction), executor::Executor, vars...
+)
   function pullback(v)
     output = batch_tensor_contraction(vjps(executor, vars, v), vars...)
-    return (nothing, Tuple(output)...)
+    return (NoTangent(), NoTangent(), Tuple(output)...)
   end
   return batch_tensor_contraction(executor, vars...), pullback
 end
