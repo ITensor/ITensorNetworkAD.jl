@@ -113,7 +113,7 @@ end
   test_rrule(swapind, A, i', i; check_inferred=false)
   test_rrule(swapinds, A, (i',), (i,); check_inferred=false)
   test_rrule(itensor, randn(2, 2), i', i; check_inferred=false)
-  # test_rrule(ITensor, randn(2, 2), i', i; check_inferred=false)
+  test_rrule(ITensor, randn(2, 2), i', i; check_inferred=false)
   test_rrule(ITensor, 2.3; check_inferred=false)
   test_rrule(dag, A; check_inferred=false)
 
@@ -209,9 +209,9 @@ end
   f = x -> itensor([x^2 x; x^3 x^4], i', i)
   args = (2.54,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
-  # f = x -> ITensor([x^2 x; x^3 x^4], i', i)
-  # args = (2.1,)
-  # test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  f = x -> ITensor([x^2 x; x^3 x^4], i', i)
+  args = (2.1,)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   f = x -> ITensor(x)
   args = (2.12,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
@@ -234,10 +234,10 @@ end
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
   args = (2.8 + 3.1im,)
   test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
-  # f = function (x)
-  #   j = Index(2)
-  #   return real((x^3 * ITensor([sin(x) exp(-2x); 3x^3 x+x^2], j', dag(j)))[1, 1])
-  # end
-  # args = (3.4 + 2.3im,)
-  # test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
+  f = function (x)
+    j = Index(2)
+    return real((x^3 * ITensor([sin(x) exp(-2x); 3x^3 x+x^2], j', dag(j)))[1, 1])
+  end
+  args = (3.4 + 2.3im,)
+  test_rrule(ZygoteRuleConfig(), f, args...; rrule_f=rrule_via_ad, check_inferred=false)
 end

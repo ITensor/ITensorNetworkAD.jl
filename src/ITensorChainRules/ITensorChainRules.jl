@@ -196,18 +196,16 @@ function ChainRulesCore.rrule(::typeof(itensor), x::Array, a...)
   return y, itensor_pullback
 end
 
-# TODO: this function is triggered in the HVP kernel and triggered error,
-# although I'm still not clear about the reason. Can debug later.
-# function ChainRulesCore.rrule(::typeof(ITensor), x::Array, a...)
-#   y = ITensor(x, a...)
-#   function ITensor_pullback(ȳ)
-#     # TODO: define `Array(::ITensor)` directly
-#     x̄ = Array(ȳ, inds(ȳ)...)
-#     ā = broadcast(_ -> NoTangent(), a)
-#     return (NoTangent(), x̄, ā...)
-#   end
-#   return y, ITensor_pullback
-# end
+function ChainRulesCore.rrule(::typeof(ITensor), x::Array{<:Number}, a::Index...)
+  y = ITensor(x, a...)
+  function ITensor_pullback(ȳ)
+    # TODO: define `Array(::ITensor)` directly
+    x̄ = Array(ȳ, inds(ȳ)...)
+    ā = broadcast(_ -> NoTangent(), a)
+    return (NoTangent(), x̄, ā...)
+  end
+  return y, ITensor_pullback
+end
 
 function ChainRulesCore.rrule(::typeof(ITensor), x::Number)
   y = ITensor(x)
