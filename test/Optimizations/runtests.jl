@@ -1,7 +1,7 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote
 using ITensorNetworkAD.ITensorNetworks:
   PEPS, randomizePEPS!, inner_network, Models, extract_data
-using ITensorNetworkAD.Optimizations: gradient_descent, optimize, generate_inner_network
+using ITensorNetworkAD.Optimizations: gradient_descent, generate_inner_network
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
 @testset "test monotonic loss decrease of optimization" begin

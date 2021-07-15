@@ -24,7 +24,7 @@ function gradient_descent(peps::PEPS, Hlocal::Array; stepsize::Float64, num_swee
   return losses
 end
 
-function optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="GD")
+function OptimKit.optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="GD")
   @assert(method in ["GD", "LBFGS", "CG"])
   inner(x, peps1, peps2) = peps1 * peps2
   loss_w_grad = loss_grad_wrap(peps, Hlocal)
