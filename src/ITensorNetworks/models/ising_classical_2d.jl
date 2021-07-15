@@ -1,14 +1,4 @@
-module Models
-
 using ITensors
-
-export Model, critical_point, local_boltzmann_weight
-
-struct Model{model} end
-Model(s::AbstractString) = Model{Symbol(s)}()
-macro Model_str(s)
-  return :(Model{$(Expr(:quote, Symbol(s)))})
-end
 
 function local_boltzmann_weight(m::String, args...; kwargs...)
   return local_boltzmann_weight(Model(m), args...; kwargs...)
@@ -102,6 +92,4 @@ end
 function magnetization(::Model"ising"; β::Real)
   β > βc && return (1 - sinh(2 * β)^(-4))^(1 / 8)
   return 0.0
-end
-
 end
