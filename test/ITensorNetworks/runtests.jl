@@ -2,7 +2,7 @@ using ITensorNetworkAD
 using Test
 
 @testset "ITensorNetworks.jl" begin
-  for filename in ["models.jl", "projectors.jl"]
+  for filename in ["peps.jl", "models.jl", "projectors.jl", "peps.jl"]
     println("Running $filename in ITensorNetworks.jl")
     include(filename)
   end
