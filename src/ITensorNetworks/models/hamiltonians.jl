@@ -27,7 +27,7 @@ end
 # Get the local hamiltonian term of a 2D grid
 function localham_term(::Model"tfim", sites::Matrix{<:Index}, bond; h::Float64)
   Ny, Nx = size(sites)
-  sites_vec = reshape(sites, Nx * Ny)
+  sites_vec = vec(sites)
   n1, n2 = bond.s1, bond.s2
   opsum = OpSum()
   opsum += -1, "X", 1, "X", 2
