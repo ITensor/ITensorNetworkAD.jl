@@ -1,18 +1,20 @@
 name: CI
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - main
+    tags: '*'
+  pull_request:
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         version:
           - '1.3'
-          - '1.6'
-          - 'nightly'
+          - '1'
         os:
           - ubuntu-latest
           - macOS-latest
@@ -20,6 +22,12 @@ jobs:
           # - windows-latest
         arch:
           - x64
+        exclude:
+          # MacOS not available on x86
+          - {os: 'macOS-latest', arch: 'x86'}
+          # Only test all os on the latest release
+          - {version: '1.3', os: 'windows-latest'}
+          - {version: '1.3', os: 'macOS-latest'}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.7
