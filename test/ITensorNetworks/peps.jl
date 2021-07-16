@@ -1,5 +1,6 @@
 using ITensors, ITensorNetworkAD, AutoHOOT
-using ITensorNetworkAD.ITensorNetworks: PEPS, randomizePEPS!, inner_network
+using ITensorNetworkAD.ITensorNetworks:
+  PEPS, inner_network, broadcast_add, broadcast_minus, broadcast_mul, broadcast_inner
 using ITensorNetworkAD.ITensorAutoHOOT: generate_optimal_tree
 
 @testset "test peps" begin
@@ -26,7 +27,7 @@ end
   Ny = 3
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites)
-  randomizePEPS!(peps)
+  randn!(peps)
   peps_prime = prime(peps; ham=false)
   inner = inner_network(peps, peps_prime)
 
@@ -41,7 +42,7 @@ end
   Ny = 4
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites)
-  randomizePEPS!(peps)
+  randn!(peps)
 
   opsum = OpSum()
   opsum += 0.5, "S+", 1, "S-", 2
@@ -63,10 +64,10 @@ end
   Ny = 3
   sites = siteinds("S=1/2", Ny, Nx)
   peps1 = PEPS(sites)
-  randomizePEPS!(peps1)
-  peps2 = 1.5 * peps1
-  peps3 = peps1 + peps2
-  peps4 = peps1 - peps2
+  randn!(peps1)
+  peps2 = broadcast_mul(1.5, peps1)
+  peps3 = broadcast_add(peps1, peps2)
+  peps4 = broadcast_minus(peps1, peps2)
   for i in 1:Nx
     for j in 1:Ny
       @test isapprox(peps2.data[j, i], 1.5 * peps1.data[j, i])

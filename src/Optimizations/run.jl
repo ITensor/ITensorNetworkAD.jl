@@ -1,4 +1,6 @@
 using OptimKit
+using ..ITensorNetworks
+using ..ITensorNetworks: broadcast_add, broadcast_minus, broadcast_mul, broadcast_inner
 
 """Update PEPS based on gradient descent
 Parameters
@@ -26,10 +28,10 @@ end
 
 function OptimKit.optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="GD")
   @assert(method in ["GD", "LBFGS", "CG"])
-  inner(x, peps1, peps2) = peps1 * peps2
+  inner(x, peps1, peps2) = broadcast_inner(peps1, peps2)
   loss_w_grad = loss_grad_wrap(peps, Hlocal)
-  scale(peps, alpha) = alpha * peps
-  add(peps1, peps2, alpha) = peps1 + alpha * peps2
+  scale(peps, alpha) = broadcast_mul(alpha, peps)
+  add(peps1, peps2, alpha) = broadcast_add(peps1, broadcast_mul(alpha, pep2))
   linesearch = HagerZhangLineSearch()
   if method == "GD"
     alg = GradientDescent(num_sweeps, 1e-8, linesearch, 2)

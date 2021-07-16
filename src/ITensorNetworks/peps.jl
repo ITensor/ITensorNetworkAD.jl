@@ -1,7 +1,9 @@
+using Random
+
 """
 A finite size PEPS type.
 """
-mutable struct PEPS
+struct PEPS
   data::Matrix{ITensor}
 end
 
@@ -32,25 +34,25 @@ function PEPS(::Type{T}, sites::Matrix{<:Index}; linkdims::Integer=1) where {T<:
   end
 
   # boundary cases
-  tensor_grid[1, 1] = emptyITensor(T, lh[1, 1], lv[1, 1], sites[1, 1])
-  tensor_grid[1, Nx] = emptyITensor(T, lh[1, Nx - 1], lv[1, Nx], sites[1, Nx])
-  tensor_grid[Ny, 1] = emptyITensor(T, lh[Ny, 1], lv[Ny - 1, 1], sites[Ny, 1])
-  tensor_grid[Ny, Nx] = emptyITensor(T, lh[Ny, Nx - 1], lv[Ny - 1, Nx], sites[Ny, Nx])
+  tensor_grid[1, 1] = ITensor(T, lh[1, 1], lv[1, 1], sites[1, 1])
+  tensor_grid[1, Nx] = ITensor(T, lh[1, Nx - 1], lv[1, Nx], sites[1, Nx])
+  tensor_grid[Ny, 1] = ITensor(T, lh[Ny, 1], lv[Ny - 1, 1], sites[Ny, 1])
+  tensor_grid[Ny, Nx] = ITensor(T, lh[Ny, Nx - 1], lv[Ny - 1, Nx], sites[Ny, Nx])
   for ii in 2:(Nx - 1)
-    tensor_grid[1, ii] = emptyITensor(T, lh[1, ii], lh[1, ii - 1], lv[1, ii], sites[1, ii])
-    tensor_grid[Ny, ii] = emptyITensor(
+    tensor_grid[1, ii] = ITensor(T, lh[1, ii], lh[1, ii - 1], lv[1, ii], sites[1, ii])
+    tensor_grid[Ny, ii] = ITensor(
       T, lh[Ny, ii], lh[Ny, ii - 1], lv[Ny - 1, ii], sites[Ny, ii]
     )
   end
 
   # inner sites
   for jj in 2:(Ny - 1)
-    tensor_grid[jj, 1] = emptyITensor(T, lh[jj, 1], lv[jj, 1], lv[jj - 1, 1], sites[jj, 1])
-    tensor_grid[jj, Nx] = emptyITensor(
+    tensor_grid[jj, 1] = ITensor(T, lh[jj, 1], lv[jj, 1], lv[jj - 1, 1], sites[jj, 1])
+    tensor_grid[jj, Nx] = ITensor(
       T, lh[jj, Nx - 1], lv[jj, Nx], lv[jj - 1, Nx], sites[jj, Nx]
     )
     for ii in 2:(Nx - 1)
-      tensor_grid[jj, ii] = emptyITensor(
+      tensor_grid[jj, ii] = ITensor(
         T, lh[jj, ii], lh[jj, ii - 1], lv[jj, ii], lv[jj - 1, ii], sites[jj, ii]
       )
     end
@@ -61,43 +63,19 @@ end
 
 PEPS(sites::Matrix{<:Index}, args...; kwargs...) = PEPS(Float64, sites, args...; kwargs...)
 
-PEPS(data::Array, size::Tuple{Int64,Int64}) = PEPS(reshape(data, size[1], size[2]))
-
-function randomizePEPS!(P::PEPS)
-  dimy, dimx = size(P.data)
-  for ii in 1:dimx
-    for jj in 1:dimy
-      randn!(P.data[jj, ii])
-      normalize!(P.data[jj, ii])
-    end
-  end
+function Random.randn!(P::PEPS)
+  randn!.(P.data)
+  normalize!.(P.data)
+  return P
 end
 
-function Base.:+(A::PEPS, B::PEPS)
-  @assert(size(A.data) == size(B.data))
-  out = [t1 + t2 for (t1, t2) in zip(vcat(A.data...), vcat(B.data...))]
-  return PEPS(out, size(A.data))
-end
+broadcast_add(A::PEPS, B::PEPS) = PEPS(A.data .+ B.data)
 
-function Base.:-(A::PEPS, B::PEPS)
-  @assert(size(A.data) == size(B.data))
-  out = [t1 - t2 for (t1, t2) in zip(vcat(A.data...), vcat(B.data...))]
-  return PEPS(out, size(A.data))
-end
+broadcast_minus(A::PEPS, B::PEPS) = PEPS(A.data .- B.data)
 
-function Base.:*(c::Number, A::PEPS)
-  out = [c * t for t in vcat(A.data...)]
-  return PEPS(out, size(A.data))
-end
+broadcast_mul(c::Number, A::PEPS) = PEPS(c .* A.data)
 
-function Base.:*(A::PEPS, B::PEPS)
-  @assert(size(A.data) == size(B.data))
-  out_scalar = 0
-  for (t1, t2) in zip(vcat(A.data...), vcat(B.data...))
-    out_scalar += ITensors.scalar(t1 * t2)
-  end
-  return out_scalar
-end
+broadcast_inner(A::PEPS, B::PEPS) = mapreduce(v -> (v[1] * v[2])[], sum, (A.data, B.data))
 
 get_prime_bonds(indices; ham=true) = ham ? indices : indices[1:(end - 1)]
 

@@ -2,7 +2,7 @@ using AutoHOOT, ChainRulesCore, Zygote
 using ..ITensorAutoHOOT
 using ..ITensorNetworks
 using ITensors: setinds
-using ..ITensorNetworks: PEPS, randomizePEPS!, inner_network, extract_data
+using ..ITensorNetworks: PEPS, inner_network, extract_data
 using ..ITensorAutoHOOT: batch_tensor_contraction
 
 # TODO: rewrite this function
@@ -22,7 +22,7 @@ function ChainRulesCore.rrule(::typeof(ITensors.prime), peps::PEPS; ham=true)
       end
       push!(dpeps_vec, setinds(dpeps_prime_vec[i], Tuple(indices_reorder)))
     end
-    dpeps = PEPS(dpeps_vec, (dimy, dimx))
+    dpeps = PEPS(reshape(dpeps_vec, (dimy, dimx)))
     return (NoTangent(), dpeps, NoTangent())
   end
   return prime(peps; ham=ham), adjoint_pullback

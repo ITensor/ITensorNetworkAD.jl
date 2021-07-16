@@ -1,6 +1,5 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
-using ITensorNetworkAD.ITensorNetworks:
-  PEPS, randomizePEPS!, inner_network, Models, extract_data
+using ITensorNetworkAD.ITensorNetworks: PEPS, inner_network, Models, extract_data
 using ITensorNetworkAD.Optimizations: gradient_descent, generate_inner_network
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
@@ -9,7 +8,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
   num_sweeps = 20
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=10)
-  randomizePEPS!(peps)
+  randn!(peps)
   H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
   losses_gd = gradient_descent(peps, H_local; stepsize=0.005, num_sweeps=num_sweeps)
   losses_ls = optimize(peps, H_local; num_sweeps=num_sweeps, method="GD")
@@ -28,7 +27,7 @@ end
   Ny = 2
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)
-  randomizePEPS!(peps)
+  randn!(peps)
   function loss(peps::PEPS)
     peps_prime = prime(peps; ham=false)
     peps_prime_ham = prime(peps; ham=true)
