@@ -5,8 +5,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: generate_optimal_tree
 @testset "test peps" begin
   Nx = 4
   Ny = 5
-  sites = siteinds("S=1/2", Nx * Ny)
-  sites = reshape(sites, Ny, Nx)
+  sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites)
 
   for ii in 1:(Ny - 1)
@@ -25,8 +24,7 @@ end
 @testset "test inner product" begin
   Nx = 2
   Ny = 3
-  sites = siteinds("S=1/2", Nx * Ny)
-  sites = reshape(sites, Ny, Nx)
+  sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites)
   randomizePEPS!(peps)
   peps_prime = prime(peps; ham=false)
@@ -41,8 +39,7 @@ end
 @testset "test inner product with hamiltonian" begin
   Nx = 3
   Ny = 4
-  sites = siteinds("S=1/2", Nx * Ny)
-  sites = reshape(sites, Ny, Nx)
+  sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites)
   randomizePEPS!(peps)
 
@@ -64,8 +61,7 @@ end
 @testset "test plus, minus, multiplication" begin
   Nx = 2
   Ny = 3
-  sites = siteinds("S=1/2", Nx * Ny)
-  sites = reshape(sites, Ny, Nx)
+  sites = siteinds("S=1/2", Ny, Nx)
   peps1 = PEPS(sites)
   randomizePEPS!(peps1)
   peps2 = 1.5 * peps1
@@ -73,9 +69,9 @@ end
   peps4 = peps1 - peps2
   for i in 1:Nx
     for j in 1:Ny
-      @test norm(peps2.data[j, i]) == norm(1.5 * peps1.data[j, i])
-      @test norm(peps3.data[j, i]) == norm(peps1.data[j, i] + peps2.data[j, i])
-      @test norm(peps4.data[j, i]) == norm(peps1.data[j, i] - peps2.data[j, i])
+      @test isapprox(peps2.data[j, i], 1.5 * peps1.data[j, i])
+      @test isapprox(peps3.data[j, i], peps1.data[j, i] + peps2.data[j, i])
+      @test isapprox(peps4.data[j, i], peps1.data[j, i] - peps2.data[j, i])
     end
   end
 end

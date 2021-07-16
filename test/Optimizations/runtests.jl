@@ -1,4 +1,4 @@
-using ITensors, ITensorNetworkAD, AutoHOOT, Zygote
+using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
   PEPS, randomizePEPS!, inner_network, Models, extract_data
 using ITensorNetworkAD.Optimizations: gradient_descent, generate_inner_network
@@ -7,8 +7,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 @testset "test monotonic loss decrease of optimization" begin
   Nx, Ny = 2, 3
   num_sweeps = 20
-  sites = siteinds("S=1/2", Nx * Ny)
-  sites = reshape(sites, Ny, Nx)
+  sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=10)
   randomizePEPS!(peps)
   H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
@@ -27,8 +26,7 @@ end
 @testset "test inner product gradient" begin
   Nx = 2
   Ny = 2
-  sites = siteinds("S=1/2", Nx * Ny)
-  sites = reshape(sites, Ny, Nx)
+  sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)
   randomizePEPS!(peps)
   function loss(peps::PEPS)
@@ -43,5 +41,5 @@ end
   inner = inner_network(peps, prime(peps; ham=false))
   g_true_first_site = contract(inner[2:length(inner)])
   g_true_first_site = 2 * g_true_first_site
-  @test isapprox(norm(g[1].data[1, 1]), norm(g_true_first_site))
+  @test isapprox(g[1].data[1, 1], g_true_first_site)
 end
