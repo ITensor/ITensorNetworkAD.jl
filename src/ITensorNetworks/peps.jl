@@ -99,18 +99,13 @@ function Base.:*(A::PEPS, B::PEPS)
   return out_scalar
 end
 
+get_prime_bonds(indices; ham=true) = ham ? indices : indices[1:(end - 1)]
+
 function ITensors.prime(peps::PEPS; ham=true)
-  prime_peps = []
-  for tensor in vcat(peps.data...)
-    indices = inds(tensor)
-    if ham == true
-      bonds = indices
-    else
-      bonds = [indices[i] for i in 1:(length(indices) - 1)]
-    end
-    prime_peps = vcat(prime_peps, [ITensors.prime(tensor, bonds)])
-  end
-  return PEPS(prime_peps, size(peps.data))
+  prime_peps = map(
+    tensor -> prime(tensor, get_prime_bonds(inds(tensor); ham=ham)), peps.data
+  )
+  return PEPS(prime_peps)
 end
 
 # Get the tensor network of <peps|peps'>

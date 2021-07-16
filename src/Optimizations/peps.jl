@@ -5,11 +5,12 @@ using ITensors: setinds
 using ..ITensorNetworks: PEPS, randomizePEPS!, inner_network, extract_data
 using ..ITensorAutoHOOT: batch_tensor_contraction
 
-function ChainRulesCore.rrule(::typeof(prime), peps::PEPS; ham=true)
+# TODO: rewrite this function
+function ChainRulesCore.rrule(::typeof(ITensors.prime), peps::PEPS; ham=true)
   dimy, dimx = size(peps.data)
-  peps_vec = reshape(peps.data, dimy * dimx)
+  peps_vec = vec(peps.data)
   function adjoint_pullback(dpeps_prime::PEPS)
-    dpeps_prime_vec = reshape(dpeps_prime.data, dimy * dimx)
+    dpeps_prime_vec = vec(dpeps_prime.data)
     dpeps_vec = []
     for i in 1:(dimy * dimx)
       indices = inds(peps_vec[i])
