@@ -1,5 +1,5 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
-using ITensorNetworkAD.ITensorNetworks: PEPS, inner_network, Models, extract_data
+using ITensorNetworkAD.ITensorNetworks: PEPS, inner_network, Models, flatten
 using ITensorNetworkAD.Optimizations: gradient_descent, generate_inner_network
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
@@ -32,7 +32,7 @@ end
     peps_prime = prime(peps; ham=false)
     peps_prime_ham = prime(peps; ham=true)
     network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, [])
-    variables = extract_data([peps, peps_prime])
+    variables = flatten([peps, peps_prime])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]
   end

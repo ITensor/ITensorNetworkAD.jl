@@ -2,7 +2,7 @@ using AutoHOOT, ChainRulesCore, Zygote
 using ..ITensorAutoHOOT
 using ..ITensorNetworks
 using ITensors: setinds
-using ..ITensorNetworks: PEPS, inner_network, extract_data
+using ..ITensorNetworks: PEPS, inner_network, flatten
 using ..ITensorAutoHOOT: batch_tensor_contraction
 
 # TODO: rewrite this function
@@ -28,7 +28,7 @@ function ChainRulesCore.rrule(::typeof(ITensors.prime), peps::PEPS; ham=true)
   return prime(peps; ham=ham), adjoint_pullback
 end
 
-function ChainRulesCore.rrule(::typeof(extract_data), v::Array{<:PEPS})
+function ChainRulesCore.rrule(::typeof(flatten), v::Array{<:PEPS})
   size_list = [size(peps.data) for peps in v]
   function adjoint_pullback(dt)
     dt = [t for t in dt]
@@ -42,7 +42,7 @@ function ChainRulesCore.rrule(::typeof(extract_data), v::Array{<:PEPS})
     end
     return (NoTangent(), dv)
   end
-  return extract_data(v), adjoint_pullback
+  return flatten(v), adjoint_pullback
 end
 
 """Generate an array of networks representing inner products, <p|H_1|p>, ..., <p|H_n|p>, <p|p>
@@ -87,7 +87,7 @@ function loss_grad_wrap(peps::PEPS, Hlocal::Array)
     peps_prime = prime(peps; ham=false)
     peps_prime_ham = prime(peps; ham=true)
     network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
-    variables = extract_data([peps, peps_prime, peps_prime_ham])
+    variables = flatten([peps, peps_prime, peps_prime_ham])
     inners = batch_tensor_contraction(network_list, variables...)
     return rayleigh_quotient(inners)
   end

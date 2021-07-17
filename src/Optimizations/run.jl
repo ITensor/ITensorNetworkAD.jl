@@ -20,7 +20,7 @@ function gradient_descent(peps::PEPS, Hlocal::Array; stepsize::Float64, num_swee
   for iter in 1:num_sweeps
     l, g = loss_w_grad(peps)
     print("The rayleigh quotient at iteraton $iter is $l\n")
-    peps = peps - stepsize * g
+    peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
     push!(losses, l)
   end
   return losses
@@ -31,7 +31,8 @@ function OptimKit.optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="G
   inner(x, peps1, peps2) = broadcast_inner(peps1, peps2)
   loss_w_grad = loss_grad_wrap(peps, Hlocal)
   scale(peps, alpha) = broadcast_mul(alpha, peps)
-  add(peps1, peps2, alpha) = broadcast_add(peps1, broadcast_mul(alpha, pep2))
+  add(peps1, peps2, alpha) = broadcast_add(peps1, broadcast_mul(alpha, peps2))
+  retract(peps1, peps2, alpha) = (add(peps1, peps2, alpha), peps2)
   linesearch = HagerZhangLineSearch()
   if method == "GD"
     alg = GradientDescent(num_sweeps, 1e-8, linesearch, 2)
@@ -43,7 +44,7 @@ function OptimKit.optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="G
     )
   end
   _, _, _, _, history = OptimKit.optimize(
-    loss_w_grad, peps, alg; inner=inner, (scale!)=scale, (add!)=add
+    loss_w_grad, peps, alg; inner=inner, (scale!)=scale, (add!)=add, retract=retract
   )
   return history[:, 1]
 end

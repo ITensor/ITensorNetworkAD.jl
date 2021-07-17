@@ -69,13 +69,15 @@ function Random.randn!(P::PEPS)
   return P
 end
 
+Base.:+(A::PEPS, B::PEPS) = broadcast_add(A, B)
+
 broadcast_add(A::PEPS, B::PEPS) = PEPS(A.data .+ B.data)
 
 broadcast_minus(A::PEPS, B::PEPS) = PEPS(A.data .- B.data)
 
 broadcast_mul(c::Number, A::PEPS) = PEPS(c .* A.data)
 
-broadcast_inner(A::PEPS, B::PEPS) = mapreduce(v -> (v[1] * v[2])[], sum, (A.data, B.data))
+broadcast_inner(A::PEPS, B::PEPS) = mapreduce(v -> v[], +, A.data .* B.data)
 
 get_prime_bonds(indices; ham=true) = ham ? indices : indices[1:(end - 1)]
 
@@ -114,7 +116,7 @@ function inner_network(
   return network
 end
 
-function extract_data(v::Array{<:PEPS})
+function flatten(v::Array{<:PEPS})
   tensor_list = [vcat(peps.data...) for peps in v]
   return vcat(tensor_list...)
 end
