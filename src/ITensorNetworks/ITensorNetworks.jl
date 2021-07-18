@@ -3,7 +3,9 @@
 using ITensors
 
 include("models/models.jl")
-include("tensor_networks.jl")
+include("utils.jl")
+include("networks.jl")
+include("contractions.jl")
 include("boundary_mps_projectors.jl")
 
 end
