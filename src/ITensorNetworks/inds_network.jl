@@ -63,4 +63,3 @@ function inds_network(
   end
   return inds
 end
-

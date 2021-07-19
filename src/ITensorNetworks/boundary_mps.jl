@@ -305,7 +305,6 @@ function contraction_cache(tn, boundary_mps)
   return (top=cache_top, bottom=cache_bottom, left=cache_left, right=cache_right)
 end
 
-
 function boundary_mps_top(tn)
   return [MPS(tn[n][n, :]) for n in 1:length(tn)]
 end
@@ -385,4 +384,3 @@ function sqnorm_approx(ψ::Matrix{ITensor}; center, cutoff, maxdim)
   Pr_flat = reduce(vcat, Pr)
   return mapreduce(vec, vcat, (ψᴴ_split, ψ′_split, Pl_flat, Pr_flat))
 end
-

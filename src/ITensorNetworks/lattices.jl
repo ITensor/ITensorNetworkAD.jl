@@ -34,7 +34,6 @@ function is_in_edge(site::Tuple, edge::Edge)
   end
 end
 
-
 function onehot_tuple(n::Integer, length::Val{N}) where {N}
   return ntuple(i -> i == n ? 1 : 0, Val(N))
 end
@@ -94,4 +93,3 @@ end
 function bonds(lattice::HyperCubic)
   return ((s, n) for s in sites(lattice) for n in outneighbors(lattice, s))
 end
-

@@ -47,4 +47,3 @@ get_itensor(x::MPS, n::Int) = n in 1:length(x) ? x[n] : ITensor()
 # Reverse the site ordering of an MPS.
 # XXX: also reverse the orthogonality limits.
 Base.reverse(x::MPS) = MPS(reverse(x.data))
-

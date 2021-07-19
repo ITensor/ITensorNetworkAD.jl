@@ -199,4 +199,3 @@ end
 function split_links(H::Vector{ITensor}, args...; kwargs...)
   return data(split_links(MPS(H), args...; kwargs...))
 end
-
