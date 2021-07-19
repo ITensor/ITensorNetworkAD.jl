@@ -8,6 +8,7 @@ using ITensorNetworkAD.ITensorNetworks:
   insert_projectors,
   sqnorm,
   sqnorm_approx
+using Test
 
 @testset "ITensorNetworks.jl" begin
   model = Models.Model"ising"()
