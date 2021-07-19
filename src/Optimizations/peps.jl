@@ -5,27 +5,19 @@ using ITensors: setinds
 using ..ITensorNetworks: PEPS, inner_network, flatten
 using ..ITensorAutoHOOT: batch_tensor_contraction
 
-# TODO: rewrite this function
-function ChainRulesCore.rrule(::typeof(ITensors.prime), peps::PEPS; ham=true)
-  dimy, dimx = size(peps.data)
-  peps_vec = vec(peps.data)
-  function adjoint_pullback(dpeps_prime::PEPS)
-    dpeps_prime_vec = vec(dpeps_prime.data)
-    dpeps_vec = []
-    for i in 1:(dimy * dimx)
-      indices = inds(peps_vec[i])
-      indices_reorder = []
-      for i_prime in inds(dpeps_prime_vec[i])
-        index = findall(x -> x.id == i_prime.id, indices)
-        @assert(length(index) == 1)
-        push!(indices_reorder, indices[index[1]])
-      end
-      push!(dpeps_vec, setinds(dpeps_prime_vec[i], Tuple(indices_reorder)))
-    end
-    dpeps = PEPS(reshape(dpeps_vec, (dimy, dimx)))
-    return (NoTangent(), dpeps, NoTangent())
-  end
-  return prime(peps; ham=ham), adjoint_pullback
+function ChainRulesCore.rrule(::typeof(PEPS), data::Matrix{ITensor})
+  return PEPS(data), dpeps -> (NoTangent(), dpeps.data)
+end
+
+function ChainRulesCore.rrule(::typeof(ITensors.prime), P::PEPS, n::Integer=1)
+  return prime(P, n), dprime -> (NoTangent(), prime(dprime, -n), NoTangent())
+end
+
+function ChainRulesCore.rrule(
+  ::typeof(ITensors.prime), ::typeof(linkinds), P::PEPS, n::Integer=1
+)
+  return prime(linkinds, P, n),
+  dprime -> (NoTangent(), NoTangent(), prime(linkinds, dprime, -n), NoTangent())
 end
 
 function ChainRulesCore.rrule(::typeof(flatten), v::Array{<:PEPS})
@@ -84,8 +76,8 @@ end
 
 function loss_grad_wrap(peps::PEPS, Hlocal::Array)
   function loss(peps::PEPS)
-    peps_prime = prime(peps; ham=false)
-    peps_prime_ham = prime(peps; ham=true)
+    peps_prime = prime(linkinds, peps)
+    peps_prime_ham = prime(peps)
     network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
     variables = flatten([peps, peps_prime, peps_prime_ham])
     inners = batch_tensor_contraction(network_list, variables...)

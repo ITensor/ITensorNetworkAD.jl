@@ -145,6 +145,7 @@ end
 function ITensors.prime(::typeof(linkinds), tn, args...)
   return mapinds(x -> prime(x, args...), linkinds, tn)
 end
+
 function ITensors.addtags(::typeof(linkinds), tn, args...)
   return mapinds(x -> addtags(x, args...), linkinds, tn)
 end

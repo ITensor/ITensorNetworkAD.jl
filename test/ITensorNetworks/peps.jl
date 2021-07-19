@@ -28,7 +28,7 @@ end
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites)
   randn!(peps)
-  peps_prime = prime(peps; ham=false)
+  peps_prime = prime(linkinds, peps)
   inner = inner_network(peps, peps_prime)
 
   opt_inner = generate_optimal_tree(inner)
@@ -50,8 +50,8 @@ end
   opsum += "Sz", 1, "Sz", 2
   mpo = MPO(opsum, [sites[2, 2], sites[2, 3]])
 
-  peps_prime = prime(peps; ham=false)
-  peps_prime_ham = prime(peps; ham=true)
+  peps_prime = prime(linkinds, peps)
+  peps_prime_ham = prime(peps)
   inner = inner_network(peps, peps_prime, peps_prime_ham, mpo, [2 => 2, 2 => 3])
   opt_inner = generate_optimal_tree(inner)
   out = contract(opt_inner)

@@ -79,13 +79,10 @@ broadcast_mul(c::Number, A::PEPS) = PEPS(c .* A.data)
 
 broadcast_inner(A::PEPS, B::PEPS) = mapreduce(v -> v[], +, A.data .* B.data)
 
-get_prime_bonds(indices; ham=true) = ham ? indices : indices[1:(end - 1)]
+ITensors.prime(P::PEPS, n::Integer=1) = PEPS(map(x -> prime(x, n), P.data))
 
-function ITensors.prime(peps::PEPS; ham=true)
-  prime_peps = map(
-    tensor -> prime(tensor, get_prime_bonds(inds(tensor); ham=ham)), peps.data
-  )
-  return PEPS(prime_peps)
+function ITensors.prime(::typeof(linkinds), P::PEPS, n::Integer=1)
+  return PEPS(mapinds(x -> prime(x, n), linkinds, P.data))
 end
 
 # Get the tensor network of <peps|peps'>

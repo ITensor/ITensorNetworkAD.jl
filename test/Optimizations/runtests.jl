@@ -29,15 +29,15 @@ end
   peps = PEPS(sites; linkdims=2)
   randn!(peps)
   function loss(peps::PEPS)
-    peps_prime = prime(peps; ham=false)
-    peps_prime_ham = prime(peps; ham=true)
+    peps_prime = prime(linkinds, peps)
+    peps_prime_ham = prime(peps)
     network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, [])
     variables = flatten([peps, peps_prime])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]
   end
   g = gradient(loss, peps)
-  inner = inner_network(peps, prime(peps; ham=false))
+  inner = inner_network(peps, prime(linkinds, peps))
   g_true_first_site = contract(inner[2:length(inner)])
   g_true_first_site = 2 * g_true_first_site
   @test isapprox(g[1].data[1, 1], g_true_first_site)
