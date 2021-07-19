@@ -5,9 +5,14 @@
 
 """
     itensor_network(dims::Int...; linkdims)
+    itensor_network(s::Array{<:Index}; linkdims)
+    itensor_network(s::Array{<:Vector{<:Index}}; linkdims)
 
 Create a tensor network on a hypercubic lattice of
 dimension `dims` with link dimension `linkdims`.
+
+Alternatively, specify the site indices with an Array `s`,
+in which case the lattice will be of dimension `size(s)`.
 
 The network will have periodic boundary conditions.
 To remove the periodic boundary condiitions, use
@@ -15,6 +20,10 @@ the function `project_boundary`.
 """
 function itensor_network(dims::Int...; linkdims)
   return ITensor.(inds_network(dims...; linkdims=linkdims))
+end
+
+function itensor_network(s::Array; linkdims)
+  return ITensor.(inds_network(s; linkdims=linkdims))
 end
 
 """
