@@ -23,18 +23,6 @@ function ITensors.siteinds(
   return [siteind(st, ns...) for ns in Base.product(1:N1, 1:N2, UnitRange.(1, Ns)...)]
 end
 
-using ITensors: data
-
-# Used for sorting a collection of Index
-function Base.isless(i1::Index, i2::Index)
-  return isless(
-    (id(i1), plev(i1), tags(i1), dir(i1)), (id(i2), plev(i2), tags(i2), dir(i2))
-  )
-end
-
-# Used for sorting a collection of Index
-Base.isless(ts1::TagSet, ts2::TagSet) = isless(data(ts1), data(ts2))
-
 # Get the promoted type of the Index objects in a collection
 # of Index (Tuple, Vector, ITensor, etc.)
 indtype(i::Index) = typeof(i)

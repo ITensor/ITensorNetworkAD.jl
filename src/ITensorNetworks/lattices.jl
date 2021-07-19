@@ -92,15 +92,6 @@ function incident_edges(lattice::HyperCubic{N}, site::NTuple{N,Int}) where {N}
 end
 
 function bonds(lattice::HyperCubic)
-  return ((s, n) for s in sites(lattice) for n in directed_neighbors(lattice, s))
-end
-
-function unique_bonds(lattice::HyperCubic)
-  # Turn into Sets so order doesn't matter
-  bond_sets = [Set(b) for b in bonds(l)]
-  unique!(bond_sets)
-  bond_tuples = map(Tuple, bond_sets)
-  sort!(bond_tuples)
-  return bond_tuples
+  return ((s, n) for s in sites(lattice) for n in outneighbors(lattice, s))
 end
 

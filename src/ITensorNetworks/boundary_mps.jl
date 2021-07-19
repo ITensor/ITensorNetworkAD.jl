@@ -157,6 +157,37 @@ function split_network(tn::Matrix{ITensor}; projector_center=default_projector_c
   return tn_split
 end
 
+# From an MPS, create a 1-site projector onto the MPS basis
+function projector(x::MPS, projector_center)
+  # Gauge the boundary MPS towards the projector_center column
+  x = orthogonalize(x, projector_center)
+
+  l = commoninds(get_itensor(x, projector_center - 1), x[projector_center])
+  r = commoninds(get_itensor(x, projector_center + 1), x[projector_center])
+
+  uₗ = x[1:(projector_center - 1)]
+  uᵣ = reverse(x[(projector_center + 1):end])
+  nₗ = length(uₗ)
+  nᵣ = length(uᵣ)
+
+  uₗᴴ = dag.(uₗ)
+  uᵣᴴ = dag.(uᵣ)
+
+  uₗ′ = reverse(prime.(uₗ))
+  uᵣ′ = reverse(prime.(uᵣ))
+
+  if !isempty(uₗ′)
+    uₗ′[1] = replaceinds(uₗ′[1], l' => l)
+  end
+  if !isempty(uᵣ′)
+    uᵣ′[1] = replaceinds(uᵣ′[1], r' => r)
+  end
+
+  Pₗ = vcat(uₗᴴ, uₗ′)
+  Pᵣ = vcat(uᵣᴴ, uᵣ′)
+  return Pₗ, Pᵣ
+end
+
 function insert_projectors(
   tn::Matrix{ITensor},
   boundary_mps::Vector{MPS},
@@ -353,138 +384,5 @@ function sqnorm_approx(ψ::Matrix{ITensor}; center, cutoff, maxdim)
   Pl_flat = reduce(vcat, Pl)
   Pr_flat = reduce(vcat, Pr)
   return mapreduce(vec, vcat, (ψᴴ_split, ψ′_split, Pl_flat, Pr_flat))
-end
-
-#
-# XXX: DEPRECATED
-#
-
-# TODO: Delete this. Better to call contract_approx seperately
-# and cache the results so they can be reused in different
-# calls to `insert_projectors` that have different values of `center`
-function insert_projectors(tn; center, projector_center=nothing, maxdim, cutoff)
-  # For now, only support contracting from top-to-bottom
-  # and bottom-to-top down to a specified row of the network
-  top_bottom = true
-  if (center[1] == :)
-    center = reverse(center)
-    tn = rotr90(tn)
-    top_bottom = false
-  end
-
-  @assert (center[2] == :)
-  center_row = center[1]
-
-  if isnothing(projector_center)
-    projector_center = (:, (size(tn, 2) + 1) ÷ 2)
-  end
-  @assert (projector_center[1] == :)
-
-  # Approximately contract the tensor network.
-  # Outputs a Vector of boundary MPS.
-  boundary_mps_top = contract_approx(
-    tn; alg="boundary_mps", dirs="top_to_bottom", cutoff=cutoff, maxdim=maxdim
-  )
-  boundary_mps_bottom = contract_approx(
-    tn; alg="boundary_mps", dirs="bottom_to_top", cutoff=cutoff, maxdim=maxdim
-  )
-  # Insert approximate projectors into rows of the network
-  boundary_mps = vcat(
-    boundary_mps_top[1:(center_row - 1)], dag.(boundary_mps_bottom[center_row:end])
-  )
-  tn_split, projectors_left, projectors_right = insert_projectors(
-    tn, boundary_mps; dirs="top_to_bottom", projector_center=projector_center
-  )
-
-  if !top_bottom
-    tn_split = rotl90(tn_split)
-  end
-  return tn_split, projectors_left, projectors_right
-end
-
-# From an MPS, create a 1-site projector onto the MPS basis
-# TODO: is this needed any more?
-function projector(x::MPS, projector_center)
-  # Gauge the boundary MPS towards the projector_center column
-  x = orthogonalize(x, projector_center)
-
-  l = commoninds(get_itensor(x, projector_center - 1), x[projector_center])
-  r = commoninds(get_itensor(x, projector_center + 1), x[projector_center])
-
-  uₗ = x[1:(projector_center - 1)]
-  uᵣ = reverse(x[(projector_center + 1):end])
-  nₗ = length(uₗ)
-  nᵣ = length(uᵣ)
-
-  uₗᴴ = dag.(uₗ)
-  uᵣᴴ = dag.(uᵣ)
-
-  uₗ′ = reverse(prime.(uₗ))
-  uᵣ′ = reverse(prime.(uᵣ))
-
-  if !isempty(uₗ′)
-    uₗ′[1] = replaceinds(uₗ′[1], l' => l)
-  end
-  if !isempty(uᵣ′)
-    uᵣ′[1] = replaceinds(uᵣ′[1], r' => r)
-  end
-
-  Pₗ = vcat(uₗᴴ, uₗ′)
-  Pᵣ = vcat(uᵣᴴ, uᵣ′)
-  return Pₗ, Pᵣ
-end
-
-# Compute the truncation projectors for the network,
-# contracting from top to bottom
-# TODO: This is the old iterative style, remove this.
-function truncation_projectors(
-  tn::Matrix{ITensor};
-  maxdim=maxdim_arg(tn),
-  cutoff=1e-8,
-  split_tags=("" => ""),
-  split_plevs=(0 => 1),
-)
-  nrows, ncols = size(tn)
-  U = Matrix{ITensor}(undef, nrows - 3, ncols - 1)
-  Ud = copy(U)
-  tn_split = copy(tn)
-  if nrows ≤ 3
-    return tn_split, U, Ud
-  end
-  psi = tn[1, :]
-  psi_split = split_links(psi; split_tags=split_tags, split_plevs=split_plevs)
-  tn_split[1, :] .= psi_split
-  for n in 1:(nrows - 3)
-    H = tn[n + 1, :]
-    projs = truncation_projectors(
-      H, psi; split_tags=split_tags, split_plevs=split_plevs, cutoff=cutoff
-    )
-    U[n, :] = first.(projs)
-    Ud[n, :] = last.(projs)
-    if n < size(U, 1)
-      for m in 1:size(U, 2)
-        U[n, m], Ud[n, m] = split_links(
-          [U[n, m], Ud[n, m]]; split_tags=split_tags, split_plevs=split_plevs
-        )
-      end
-    end
-    H_split = split_links(H; split_tags=split_tags, split_plevs=split_plevs)
-    tn_split[n + 1, :] .= H_split
-    psi = insert_projectors(H_split, psi_split, projs)
-    psi_split = split_links(psi; split_tags=split_tags, split_plevs=split_plevs)
-  end
-  return tn_split, U, Ud
-end
-
-# TODO: is this needed anywehere?
-function insert_projectors(H, psi, projs)
-  N = length(H)
-  Hpsi = Vector{ITensor}(undef, N)
-  Hpsi[1] = psi[1] * H[1] * projs[1][1]
-  for n in 2:(N - 1)
-    Hpsi[n] = projs[n - 1][2] * psi[n] * H[n] * projs[n][1]
-  end
-  Hpsi[N] = projs[N - 1][2] * psi[N] * H[N]
-  return Hpsi
 end
 
