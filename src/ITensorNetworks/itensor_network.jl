@@ -190,7 +190,9 @@ end
 
 # Split the links of an ITensor network by changing the prime levels
 # or tags of pairs of links.
-function split_links(H::Union{MPS,MPO}; split_tags=("" => ""), split_plevs=(0 => 1))
+function split_links(
+  H::Union{MPS,MPO}; split_tags=("" => ""), split_plevs=(0 => 1), tag_f=addtags
+)
   left_tags, right_tags = split_tags
   left_plev, right_plev = split_plevs
   l = outlinkinds(H)
@@ -198,8 +200,8 @@ function split_links(H::Union{MPS,MPO}; split_tags=("" => ""), split_plevs=(0 =>
   for bond in keys(l)
     n1, n2 = bond
     lₙ = l[bond]
-    left_l_n = setprime(addtags(lₙ, left_tags), left_plev)
-    right_l_n = setprime(addtags(lₙ, right_tags), right_plev)
+    left_l_n = prime(tag_f(lₙ, left_tags), left_plev)
+    right_l_n = prime(tag_f(lₙ, right_tags), right_plev)
     Hsplit[n1] = replaceinds(Hsplit[n1], lₙ => left_l_n)
     Hsplit[n2] = replaceinds(Hsplit[n2], lₙ => right_l_n)
   end
