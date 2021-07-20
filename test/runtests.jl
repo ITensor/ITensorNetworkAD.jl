@@ -6,6 +6,7 @@ using Test
     "ITensorAutoHOOT/runtests.jl",
     "ITensorChainRules/runtests.jl",
     "ITensorNetworks/runtests.jl",
+    "Optimizations/runtests.jl",
   ]
     println("Running $filename")
     include(filename)
