@@ -81,8 +81,30 @@ broadcast_inner(A::PEPS, B::PEPS) = mapreduce(v -> v[], +, A.data .* B.data)
 
 ITensors.prime(P::PEPS, n::Integer=1) = PEPS(map(x -> prime(x, n), P.data))
 
+function ITensors.prime(indices::Array{<:Index,1}, P::PEPS, n::Integer=1)
+  function primeinds(tensor)
+    prime_inds = [ind for ind in inds(tensor) if ind in indices]
+    return replaceinds(tensor, prime_inds => prime(prime_inds, n))
+  end
+  return PEPS(map(x -> primeinds(x), P.data))
+end
+
 function ITensors.prime(::typeof(linkinds), P::PEPS, n::Integer=1)
   return PEPS(mapinds(x -> prime(x, n), linkinds, P.data))
+end
+
+function ITensors.addtags(::typeof(linkinds), P::PEPS, args...)
+  return PEPS(addtags(linkinds, P.data, args...))
+end
+
+function ITensors.removetags(::typeof(linkinds), P::PEPS, args...)
+  return PEPS(removetags(linkinds, P.data, args...))
+end
+
+split_network(P::PEPS) = PEPS(split_network(P.data))
+
+function ITensors.commoninds(p1::PEPS, p2::PEPS)
+  return mapreduce(a -> commoninds(a...), vcat, zip(p1.data, p2.data))
 end
 
 # Get the tensor network of <peps|peps'>
@@ -116,4 +138,13 @@ end
 function flatten(v::Array{<:PEPS})
   tensor_list = [vcat(peps.data...) for peps in v]
   return vcat(tensor_list...)
+end
+
+function insert_projectors(peps::PEPS, center, cutoff=1e-15, maxdim=100)
+  # Square the tensor network
+  psi_bra = addtags(linkinds, dag.(peps.data), "bra")
+  psi_ket = addtags(linkinds, peps.data, "ket")
+  tn = psi_bra .* psi_ket
+  tn_split, pl, pr = insert_projectors(tn; center=center, cutoff=cutoff, maxdim=maxdim)
+  return tn_split, vcat(reduce(vcat, pl), reduce(vcat, pr))
 end

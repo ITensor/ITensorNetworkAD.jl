@@ -253,6 +253,19 @@ function insert_projectors(tn, boundary_mps::BoundaryMPS; center, projector_cent
   return tn_split, projectors_left, projectors_right
 end
 
+function insert_projectors(tn::Matrix{ITensor}; center, cutoff, maxdim)
+  #TODO
+  # Contract in every direction
+  combiner_gauge = combiners(linkinds, tn)
+  tnᶜ = insert_gauge(tn, combiner_gauge)
+  boundary_mpsᶜ = contract_approx(tnᶜ; maxdim=maxdim, cutoff=cutoff)
+
+  tn_cacheᶜ = contraction_cache(tnᶜ, boundary_mpsᶜ)
+  tn_cache = insert_gauge(tn_cacheᶜ, combiner_gauge)
+  _boundary_mps = boundary_mps(tn_cache)
+  return insert_projectors(tn, _boundary_mps; center=center)
+end
+
 function contraction_cache_top(tn, boundary_mps::Vector{MPS}, n)
   tn_cache = fill(ITensor(1.0), size(tn))
   for nrow in 1:size(tn, 1)
@@ -359,27 +372,12 @@ function sqnorm_approx(ψ::Matrix{ITensor}; center, cutoff, maxdim)
   ψ′ = addtags(linkinds, ψ, "ket")
   # TODO: implement contract(commoninds, ψ′, ψᴴ)
   tn = ψ′ .* ψᴴ
-
-  # Contract in every direction
-  combiner_gauge = combiners(linkinds, tn)
-  tnᶜ = insert_gauge(tn, combiner_gauge)
-  boundary_mpsᶜ = contract_approx(tnᶜ; maxdim=maxdim, cutoff=cutoff)
-
-  tn_cacheᶜ = contraction_cache(tnᶜ, boundary_mpsᶜ)
-  tn_cache = insert_gauge(tn_cacheᶜ, combiner_gauge)
-  _boundary_mps = boundary_mps(tn_cache)
-
-  #
   # Insert projectors horizontally (to measure e.g. properties
   # in a row of the network)
-  #
-
-  tn_projected = insert_projectors(tn, _boundary_mps; center=center)
+  tn_projected = insert_projectors(tn; center=center, cutoff=cutoff, maxdim=maxdim)
   tn_split, Pl, Pr = tn_projected
-
   ψᴴ_split = split_network(ψᴴ)
   ψ′_split = split_network(ψ′)
-
   Pl_flat = reduce(vcat, Pl)
   Pr_flat = reduce(vcat, Pr)
   return mapreduce(vec, vcat, (ψᴴ_split, ψ′_split, Pl_flat, Pr_flat))

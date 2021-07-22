@@ -2,8 +2,8 @@ using ChainRulesCore
 using ..ITensorNetworks
 using ..ITensorNetworks: split_links
 
-inv_op(::typeof(addtags)) = :removetags
-inv_op(::typeof(removetags)) = :addtags
+inv_op(::typeof(addtags)) = removetags
+inv_op(::typeof(removetags)) = addtags
 
 function ChainRulesCore.rrule(
   ::typeof(split_links),

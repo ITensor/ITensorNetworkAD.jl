@@ -150,6 +150,10 @@ function ITensors.addtags(::typeof(linkinds), tn, args...)
   return mapinds(x -> addtags(x, args...), linkinds, tn)
 end
 
+function ITensors.removetags(::typeof(linkinds), tn, args...)
+  return mapinds(x -> removetags(x, args...), linkinds, tn)
+end
+
 # Compute the sets of combiners that combine the link indices
 # of the tensor network so that neighboring tensors only
 # share a single larger index.
