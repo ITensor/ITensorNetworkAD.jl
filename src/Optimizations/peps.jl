@@ -2,8 +2,14 @@ using AutoHOOT, ChainRulesCore, Zygote
 using ..ITensorAutoHOOT
 using ..ITensorNetworks
 using ITensors: setinds
-using ..ITensorNetworks: PEPS, inner_network, flatten
+using ..ITensorNetworks: PEPS, inner_network, flatten, insert_projectors, split_network
 using ..ITensorAutoHOOT: batch_tensor_contraction
+
+broadcast_notangent(a) = broadcast(_ -> NoTangent(), a)
+
+function ChainRulesCore.rrule(::typeof(ITensors.data), P::PEPS)
+  return P.data, d_data -> (NoTangent(), PEPS(d_data))
+end
 
 function ChainRulesCore.rrule(::typeof(PEPS), data::Matrix{ITensor})
   return PEPS(data), dpeps -> (NoTangent(), dpeps.data)
@@ -14,10 +20,38 @@ function ChainRulesCore.rrule(::typeof(ITensors.prime), P::PEPS, n::Integer=1)
 end
 
 function ChainRulesCore.rrule(
+  ::typeof(ITensors.addtags), ::typeof(linkinds), P::PEPS, args...
+)
+  function pullback(dtag_peps)
+    dP = ITensors.removetags(linkinds, dtag_peps, args...)
+    return (NoTangent(), NoTangent(), dP, broadcast_notangent(args)...)
+  end
+  return ITensors.addtags(linkinds, P, args...), pullback
+end
+
+function ChainRulesCore.rrule(
+  ::typeof(ITensors.removetags), ::typeof(linkinds), P::PEPS, args...
+)
+  function pullback(dtag_peps)
+    dP = ITensors.addtags(linkinds, dtag_peps, args...)
+    return (NoTangent(), NoTangent(), dP, broadcast_notangent(args)...)
+  end
+  return ITensors.removetags(linkinds, P, args...), pullback
+end
+
+function ChainRulesCore.rrule(
   ::typeof(ITensors.prime), ::typeof(linkinds), P::PEPS, n::Integer=1
 )
   return prime(linkinds, P, n),
   dprime -> (NoTangent(), NoTangent(), prime(linkinds, dprime, -n), NoTangent())
+end
+
+function ChainRulesCore.rrule(
+  ::typeof(ITensors.prime), indices::Array{<:Index,1}, P::PEPS, n::Integer=1
+)
+  primeinds = [prime(ind, n) for ind in indices]
+  return prime(indices, P, n),
+  dprime -> (NoTangent(), NoTangent(), prime(primeinds, dprime, -n), NoTangent())
 end
 
 function ChainRulesCore.rrule(::typeof(flatten), v::Array{<:PEPS})
@@ -68,9 +102,28 @@ end
   peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
 )
 
+function generate_inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Array{<:ITensor,1},
+  Hlocal::Array,
+)
+  network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
+  return map(network -> vcat(network, projectors), network_list)
+end
+
+@non_differentiable generate_inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Array{<:ITensor,1},
+  Hlocal::Array,
+)
+
 function rayleigh_quotient(inners::Array)
-  self_inner = inners[length(inners)][]
-  expectations = sum(inners[1:(length(inners) - 1)])[]
+  self_inner = inners[end][]
+  expectations = sum(inners[1:(end - 1)])[]
   return expectations / self_inner
 end
 
@@ -80,6 +133,32 @@ function loss_grad_wrap(peps::PEPS, Hlocal::Array)
     peps_prime_ham = prime(peps)
     network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
     variables = flatten([peps, peps_prime, peps_prime_ham])
+    inners = batch_tensor_contraction(network_list, variables...)
+    return rayleigh_quotient(inners)
+  end
+  loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]
+  return loss_w_grad
+end
+
+@non_differentiable insert_projectors(peps::PEPS, center, cutoff, maxdim)
+
+@non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
+
+function loss_grad_wrap(peps::PEPS, Hlocal::Array, ::typeof(insert_projectors))
+  center = (div(size(peps.data)[1] - 1, 2) + 1, :)
+  function loss(peps::PEPS)
+    tn_split, projectors = insert_projectors(peps, center)
+    peps_bra = addtags(linkinds, peps, "bra")
+    peps_ket = addtags(linkinds, peps, "ket")
+    sites = commoninds(peps_bra, peps_ket)
+    peps_bra_split = split_network(peps_bra)
+    peps_ket_split = split_network(peps_ket)
+    peps_ket_split_ham = prime(sites, peps_ket_split)
+    # generate network
+    network_list = generate_inner_network(
+      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors, Hlocal
+    )
+    variables = flatten([peps_bra_split, peps_ket_split, peps_ket_split_ham])
     inners = batch_tensor_contraction(network_list, variables...)
     return rayleigh_quotient(inners)
   end

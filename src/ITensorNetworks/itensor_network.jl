@@ -150,6 +150,10 @@ function ITensors.addtags(::typeof(linkinds), tn, args...)
   return mapinds(x -> addtags(x, args...), linkinds, tn)
 end
 
+function ITensors.removetags(::typeof(linkinds), tn, args...)
+  return mapinds(x -> removetags(x, args...), linkinds, tn)
+end
+
 # Compute the sets of combiners that combine the link indices
 # of the tensor network so that neighboring tensors only
 # share a single larger index.
@@ -198,8 +202,8 @@ function split_links(H::Union{MPS,MPO}; split_tags=("" => ""), split_plevs=(0 =>
   for bond in keys(l)
     n1, n2 = bond
     lₙ = l[bond]
-    left_l_n = setprime(addtags(lₙ, left_tags), left_plev)
-    right_l_n = setprime(addtags(lₙ, right_tags), right_plev)
+    left_l_n = prime(addtags(lₙ, left_tags), left_plev)
+    right_l_n = prime(addtags(lₙ, right_tags), right_plev)
     Hsplit[n1] = replaceinds(Hsplit[n1], lₙ => left_l_n)
     Hsplit[n2] = replaceinds(Hsplit[n2], lₙ => right_l_n)
   end

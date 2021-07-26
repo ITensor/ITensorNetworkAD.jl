@@ -339,6 +339,17 @@ function boundary_mps(tn::NamedTuple)
   )
 end
 
+function boundary_mps(tn::Matrix{ITensor}; cutoff, maxdim)
+  #TODO
+  # Contract in every direction
+  combiner_gauge = combiners(linkinds, tn)
+  tnᶜ = insert_gauge(tn, combiner_gauge)
+  boundary_mpsᶜ = contract_approx(tnᶜ; maxdim=maxdim, cutoff=cutoff)
+  tn_cacheᶜ = contraction_cache(tnᶜ, boundary_mpsᶜ)
+  tn_cache = insert_gauge(tn_cacheᶜ, combiner_gauge)
+  return boundary_mps(tn_cache)
+end
+
 # Return a network that when contracted equals the
 # squared norm of the input network.
 # TODO: rename norm2_network
@@ -359,27 +370,13 @@ function sqnorm_approx(ψ::Matrix{ITensor}; center, cutoff, maxdim)
   ψ′ = addtags(linkinds, ψ, "ket")
   # TODO: implement contract(commoninds, ψ′, ψᴴ)
   tn = ψ′ .* ψᴴ
-
-  # Contract in every direction
-  combiner_gauge = combiners(linkinds, tn)
-  tnᶜ = insert_gauge(tn, combiner_gauge)
-  boundary_mpsᶜ = contract_approx(tnᶜ; maxdim=maxdim, cutoff=cutoff)
-
-  tn_cacheᶜ = contraction_cache(tnᶜ, boundary_mpsᶜ)
-  tn_cache = insert_gauge(tn_cacheᶜ, combiner_gauge)
-  _boundary_mps = boundary_mps(tn_cache)
-
-  #
   # Insert projectors horizontally (to measure e.g. properties
   # in a row of the network)
-  #
-
-  tn_projected = insert_projectors(tn, _boundary_mps; center=center)
+  bmps = boundary_mps(tn; cutoff=cutoff, maxdim=maxdim)
+  tn_projected = insert_projectors(tn, bmps; center=center)
   tn_split, Pl, Pr = tn_projected
-
   ψᴴ_split = split_network(ψᴴ)
   ψ′_split = split_network(ψ′)
-
   Pl_flat = reduce(vcat, Pl)
   Pr_flat = reduce(vcat, Pr)
   return mapreduce(vec, vcat, (ψᴴ_split, ψ′_split, Pl_flat, Pr_flat))
