@@ -81,6 +81,7 @@ broadcast_inner(A::PEPS, B::PEPS) = mapreduce(v -> v[], +, A.data .* B.data)
 
 ITensors.prime(P::PEPS, n::Integer=1) = PEPS(map(x -> prime(x, n), P.data))
 
+# prime a PEPS with specified indices
 function ITensors.prime(indices::Array{<:Index,1}, P::PEPS, n::Integer=1)
   function primeinds(tensor)
     prime_inds = [ind for ind in inds(tensor) if ind in indices]
@@ -89,6 +90,7 @@ function ITensors.prime(indices::Array{<:Index,1}, P::PEPS, n::Integer=1)
   return PEPS(map(x -> primeinds(x), P.data))
 end
 
+# prime linkinds of a PEPS
 function ITensors.prime(::typeof(linkinds), P::PEPS, n::Integer=1)
   return PEPS(mapinds(x -> prime(x, n), linkinds, P.data))
 end
@@ -101,7 +103,9 @@ function ITensors.removetags(::typeof(linkinds), P::PEPS, args...)
   return PEPS(removetags(linkinds, P.data, args...))
 end
 
-split_network(P::PEPS) = PEPS(split_network(P.data))
+ITensors.data(P::PEPS) = P.data
+
+split_network(P::PEPS) = PEPS(split_network(data(P)))
 
 function ITensors.commoninds(p1::PEPS, p2::PEPS)
   return mapreduce(a -> commoninds(a...), vcat, zip(p1.data, p2.data))
