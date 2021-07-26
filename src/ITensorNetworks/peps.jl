@@ -149,6 +149,7 @@ function insert_projectors(peps::PEPS, center, cutoff=1e-15, maxdim=100)
   psi_bra = addtags(linkinds, dag.(peps.data), "bra")
   psi_ket = addtags(linkinds, peps.data, "ket")
   tn = psi_bra .* psi_ket
-  tn_split, pl, pr = insert_projectors(tn; center=center, cutoff=cutoff, maxdim=maxdim)
+  bmps = boundary_mps(tn; cutoff=cutoff, maxdim=maxdim)
+  tn_split, pl, pr = insert_projectors(tn, bmps; center=center)
   return tn_split, vcat(reduce(vcat, pl), reduce(vcat, pr))
 end
