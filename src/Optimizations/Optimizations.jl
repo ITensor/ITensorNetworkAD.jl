@@ -2,7 +2,7 @@ module Optimizations
 
 using ITensors
 
-export gradient_descent, generate_inner_network, rayleigh_quotient
+export gradient_descent, gd_error_tracker
 
 include("peps.jl")
 include("optimizers.jl")
