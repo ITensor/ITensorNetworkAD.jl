@@ -1,5 +1,4 @@
 using AutoHOOT, ChainRulesCore
-using ITensors: setinds
 
 broadcast_notangent(a) = broadcast(_ -> NoTangent(), a)
 
