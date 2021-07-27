@@ -153,3 +153,46 @@ function insert_projectors(peps::PEPS, center, cutoff=1e-15, maxdim=100)
   tn_split, pl, pr = insert_projectors(tn, bmps; center=center)
   return tn_split, vcat(reduce(vcat, pl), reduce(vcat, pr))
 end
+
+"""Generate an array of networks representing inner products, <p|H_1|p>, ..., <p|H_n|p>, <p|p>
+Parameters
+----------
+peps: a peps network with datatype PEPS
+peps_prime: prime of peps used for inner products
+peps_prime_ham: prime of peps used for calculating expectation values
+Hlocal: An array of MPO operators with datatype LocalMPO
+Returns
+-------
+An array of networks.
+"""
+function generate_inner_network(
+  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
+)
+  network_list = []
+  for H_term in Hlocal
+    inner = inner_network(
+      peps, peps_prime, peps_prime_ham, H_term.mpo, [H_term.coord1, H_term.coord2]
+    )
+    network_list = vcat(network_list, [inner])
+  end
+  inner = inner_network(peps, peps_prime)
+  network_list = vcat(network_list, [inner])
+  return network_list
+end
+
+function generate_inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Array{<:ITensor,1},
+  Hlocal::Array,
+)
+  network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
+  return map(network -> vcat(network, projectors), network_list)
+end
+
+function rayleigh_quotient(inners::Array)
+  self_inner = inners[end][]
+  expectations = sum(inners[1:(end - 1)])[]
+  return expectations / self_inner
+end

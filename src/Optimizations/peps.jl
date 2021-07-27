@@ -1,131 +1,10 @@
-using AutoHOOT, ChainRulesCore, Zygote
+using Zygote, OptimKit
 using ..ITensorAutoHOOT
 using ..ITensorNetworks
-using ITensors: setinds
-using ..ITensorNetworks: PEPS, inner_network, flatten, insert_projectors, split_network
 using ..ITensorAutoHOOT: batch_tensor_contraction
-
-broadcast_notangent(a) = broadcast(_ -> NoTangent(), a)
-
-function ChainRulesCore.rrule(::typeof(ITensors.data), P::PEPS)
-  return P.data, d_data -> (NoTangent(), PEPS(d_data))
-end
-
-function ChainRulesCore.rrule(::typeof(PEPS), data::Matrix{ITensor})
-  return PEPS(data), dpeps -> (NoTangent(), dpeps.data)
-end
-
-function ChainRulesCore.rrule(::typeof(ITensors.prime), P::PEPS, n::Integer=1)
-  return prime(P, n), dprime -> (NoTangent(), prime(dprime, -n), NoTangent())
-end
-
-function ChainRulesCore.rrule(
-  ::typeof(ITensors.addtags), ::typeof(linkinds), P::PEPS, args...
-)
-  function pullback(dtag_peps)
-    dP = ITensors.removetags(linkinds, dtag_peps, args...)
-    return (NoTangent(), NoTangent(), dP, broadcast_notangent(args)...)
-  end
-  return ITensors.addtags(linkinds, P, args...), pullback
-end
-
-function ChainRulesCore.rrule(
-  ::typeof(ITensors.removetags), ::typeof(linkinds), P::PEPS, args...
-)
-  function pullback(dtag_peps)
-    dP = ITensors.addtags(linkinds, dtag_peps, args...)
-    return (NoTangent(), NoTangent(), dP, broadcast_notangent(args)...)
-  end
-  return ITensors.removetags(linkinds, P, args...), pullback
-end
-
-function ChainRulesCore.rrule(
-  ::typeof(ITensors.prime), ::typeof(linkinds), P::PEPS, n::Integer=1
-)
-  return prime(linkinds, P, n),
-  dprime -> (NoTangent(), NoTangent(), prime(linkinds, dprime, -n), NoTangent())
-end
-
-function ChainRulesCore.rrule(
-  ::typeof(ITensors.prime), indices::Array{<:Index,1}, P::PEPS, n::Integer=1
-)
-  primeinds = [prime(ind, n) for ind in indices]
-  return prime(indices, P, n),
-  dprime -> (NoTangent(), NoTangent(), prime(primeinds, dprime, -n), NoTangent())
-end
-
-function ChainRulesCore.rrule(::typeof(flatten), v::Array{<:PEPS})
-  size_list = [size(peps.data) for peps in v]
-  function adjoint_pullback(dt)
-    dt = [t for t in dt]
-    index = 0
-    dv = []
-    for (dimy, dimx) in size_list
-      size = dimy * dimx
-      d_peps = PEPS(reshape(dt[(index + 1):(index + size)], dimy, dimx))
-      index += size
-      push!(dv, d_peps)
-    end
-    return (NoTangent(), dv)
-  end
-  return flatten(v), adjoint_pullback
-end
-
-"""Generate an array of networks representing inner products, <p|H_1|p>, ..., <p|H_n|p>, <p|p>
-Parameters
-----------
-peps: a peps network with datatype PEPS
-peps_prime: prime of peps used for inner products
-peps_prime_ham: prime of peps used for calculating expectation values
-Hlocal: An array of MPO operators with datatype LocalMPO
-Returns
--------
-An array of networks.
-"""
-function generate_inner_network(
-  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
-)
-  network_list = []
-  for H_term in Hlocal
-    inner = inner_network(
-      peps, peps_prime, peps_prime_ham, H_term.mpo, [H_term.coord1, H_term.coord2]
-    )
-    network_list = vcat(network_list, [inner])
-  end
-  inner = inner_network(peps, peps_prime)
-  network_list = vcat(network_list, [inner])
-  return network_list
-end
-
-# gradient of this function returns nothing.
-@non_differentiable generate_inner_network(
-  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
-)
-
-function generate_inner_network(
-  peps::PEPS,
-  peps_prime::PEPS,
-  peps_prime_ham::PEPS,
-  projectors::Array{<:ITensor,1},
-  Hlocal::Array,
-)
-  network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
-  return map(network -> vcat(network, projectors), network_list)
-end
-
-@non_differentiable generate_inner_network(
-  peps::PEPS,
-  peps_prime::PEPS,
-  peps_prime_ham::PEPS,
-  projectors::Array{<:ITensor,1},
-  Hlocal::Array,
-)
-
-function rayleigh_quotient(inners::Array)
-  self_inner = inners[end][]
-  expectations = sum(inners[1:(end - 1)])[]
-  return expectations / self_inner
-end
+using ..ITensorNetworks:
+  PEPS, generate_inner_network, flatten, insert_projectors, split_network, rayleigh_quotient
+using ..ITensorNetworks: broadcast_add, broadcast_minus, broadcast_mul, broadcast_inner
 
 function loss_grad_wrap(peps::PEPS, Hlocal::Array)
   function loss(peps::PEPS)
@@ -139,10 +18,6 @@ function loss_grad_wrap(peps::PEPS, Hlocal::Array)
   loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]
   return loss_w_grad
 end
-
-@non_differentiable insert_projectors(peps::PEPS, center, cutoff, maxdim)
-
-@non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
 
 function loss_grad_wrap(peps::PEPS, Hlocal::Array, ::typeof(insert_projectors))
   center = (div(size(peps.data)[1] - 1, 2) + 1, :)
@@ -164,4 +39,73 @@ function loss_grad_wrap(peps::PEPS, Hlocal::Array, ::typeof(insert_projectors))
   end
   loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]
   return loss_w_grad
+end
+
+function gradient_descent(peps::PEPS, loss_w_grad; stepsize::Float64, num_sweeps::Int)
+  # gradient descent iterations
+  losses = []
+  for iter in 1:num_sweeps
+    l, g = loss_w_grad(peps)
+    print("The rayleigh quotient at iteraton $iter is $l\n")
+    peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
+    push!(losses, l)
+  end
+  return losses
+end
+
+"""Update PEPS based on gradient descent
+Parameters
+----------
+peps: a peps network with datatype PEPS
+Hlocal: An array of MPO operators with datatype LocalMPO
+stepsize: step size used in the gradient descent
+num_sweeps: number of gradient descent sweeps/iterations
+Returns
+-------
+An array containing Rayleigh quotient losses after each iteration.
+"""
+function gradient_descent(peps::PEPS, Hlocal::Array; stepsize::Float64, num_sweeps::Int)
+  loss_w_grad = loss_grad_wrap(peps, Hlocal)
+  return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
+end
+
+function gradient_descent(
+  peps::PEPS, Hlocal::Array, ::typeof(insert_projectors); stepsize::Float64, num_sweeps::Int
+)
+  loss_w_grad = loss_grad_wrap(peps, Hlocal, insert_projectors)
+  return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
+end
+
+function OptimKit.optimize(peps::PEPS, loss_w_grad; num_sweeps::Int, method="GD")
+  @assert(method in ["GD", "LBFGS", "CG"])
+  inner(x, peps1, peps2) = broadcast_inner(peps1, peps2)
+  scale(peps, alpha) = broadcast_mul(alpha, peps)
+  add(peps1, peps2, alpha) = broadcast_add(peps1, broadcast_mul(alpha, peps2))
+  retract(peps1, peps2, alpha) = (add(peps1, peps2, alpha), peps2)
+  linesearch = HagerZhangLineSearch()
+  if method == "GD"
+    alg = GradientDescent(num_sweeps, 1e-8, linesearch, 2)
+  elseif method == "LBFGS"
+    alg = LBFGS(16; maxiter=num_sweeps, gradtol=1e-8, linesearch=linesearch, verbosity=2)
+  elseif method == "CG"
+    alg = ConjugateGradient(;
+      maxiter=num_sweeps, gradtol=1e-8, linesearch=linesearch, verbosity=2
+    )
+  end
+  _, _, _, _, history = OptimKit.optimize(
+    loss_w_grad, peps, alg; inner=inner, (scale!)=scale, (add!)=add, retract=retract
+  )
+  return history[:, 1]
+end
+
+function OptimKit.optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="GD")
+  loss_w_grad = loss_grad_wrap(peps, Hlocal)
+  return optimize(peps, loss_w_grad; num_sweeps=num_sweeps, method=method)
+end
+
+function OptimKit.optimize(
+  peps::PEPS, Hlocal::Array, ::typeof(insert_projectors); num_sweeps::Int, method="GD"
+)
+  loss_w_grad = loss_grad_wrap(peps, Hlocal, insert_projectors)
+  return optimize(peps, loss_w_grad; num_sweeps=num_sweeps, method=method)
 end
