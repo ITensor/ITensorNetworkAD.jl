@@ -19,10 +19,12 @@ function loss_grad_wrap(peps::PEPS, Hlocal::Array)
   return loss_w_grad
 end
 
-function loss_grad_wrap(peps::PEPS, Hlocal::Array, ::typeof(insert_projectors), maxdim=100)
+function loss_grad_wrap(
+  peps::PEPS, Hlocal::Array, ::typeof(insert_projectors); cutoff=1e-15, maxdim=100
+)
   center = (div(size(peps.data)[1] - 1, 2) + 1, :)
   function loss(peps::PEPS)
-    tn_split, projectors = insert_projectors(peps, center, 1e-15, maxdim)
+    tn_split, projectors = insert_projectors(peps, center, cutoff, maxdim)
     peps_bra = addtags(linkinds, peps, "bra")
     peps_ket = addtags(linkinds, peps, "ket")
     sites = commoninds(peps_bra, peps_ket)
@@ -75,17 +77,22 @@ function gradient_descent(
   ::typeof(insert_projectors);
   stepsize::Float64,
   num_sweeps::Int,
+  cutoff=1e-15,
   maxdim=100,
 )
-  loss_w_grad = loss_grad_wrap(peps, Hlocal, insert_projectors, maxdim)
+  loss_w_grad = loss_grad_wrap(
+    peps, Hlocal, insert_projectors; cutoff=cutoff, maxdim=maxdim
+  )
   return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
 end
 
 function gd_error_tracker(
-  peps::PEPS, Hlocal::Array; stepsize::Float64, num_sweeps::Int, maxdim=100
+  peps::PEPS, Hlocal::Array; stepsize::Float64, num_sweeps::Int, cutoff=cutoff, maxdim=100
 )
   loss_w_grad = loss_grad_wrap(peps, Hlocal)
-  loss_w_grad_approx = loss_grad_wrap(peps, Hlocal, insert_projectors, maxdim)
+  loss_w_grad_approx = loss_grad_wrap(
+    peps, Hlocal, insert_projectors; cutoff=cutoff, maxdim=maxdim
+  )
   for iter in 1:num_sweeps
     l, g = loss_w_grad(peps)
     l_approx, g_approx = loss_w_grad_approx(peps)
@@ -131,8 +138,11 @@ function OptimKit.optimize(
   ::typeof(insert_projectors);
   num_sweeps::Int,
   method="GD",
+  cutoff=1e-15,
   maxdim=100,
 )
-  loss_w_grad = loss_grad_wrap(peps, Hlocal, insert_projectors, maxdim)
+  loss_w_grad = loss_grad_wrap(
+    peps, Hlocal, insert_projectors; cutoff=cutoff, maxdim=maxdim
+  )
   return optimize(peps, loss_w_grad; num_sweeps=num_sweeps, method=method)
 end
