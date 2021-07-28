@@ -30,7 +30,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 end
 
 @testset "test monotonic loss decrease of optimization with inserting projectors" begin
-  Nx, Ny = 4, 4
+  Nx, Ny = 3, 3
   num_sweeps = 20
   cutoff = 1e-15
   maxdim = 100
