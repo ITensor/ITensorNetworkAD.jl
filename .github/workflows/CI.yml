@@ -40,6 +40,7 @@ jobs:
           cd cotengra
           python -m pip install --upgrade pip
           pip install kahypar
+          pip install autoray
           pip install .
       - name: Install the AutoHOOT Python library, its dependencies and set path.
         run: |
