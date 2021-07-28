@@ -168,3 +168,14 @@ function einstr_generation(network::Array)
   outstr = join([index_dict[i] for i in output_inds])
   return instr * "->" * outstr
 end
+
+function generate_node_index_dict(node_dict, networks)
+  node_index_dict = Dict()
+  for i in 1:length(networks)
+    for j in 1:length(networks[i])
+      node = retrieve_key(node_dict, networks[i][j])
+      node_index_dict[node] = (i => j)
+    end
+  end
+  return node_index_dict
+end
