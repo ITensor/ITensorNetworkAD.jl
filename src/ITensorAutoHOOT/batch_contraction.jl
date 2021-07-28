@@ -20,7 +20,7 @@ NetworkSum() = NetworkSum([])
 function Executor(networks::Array)
   nodes, node_dict = generate_einsum_expr(networks)
   # TODO: add caching here
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+  net_sums = [NetworkSum([go.generate_optimal_tree(n; path="kahypar")]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
