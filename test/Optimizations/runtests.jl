@@ -1,8 +1,13 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
-  PEPS, inner_network, Models, flatten, insert_projectors, split_network
-using ITensorNetworkAD.Optimizations:
-  gradient_descent, generate_inner_network, rayleigh_quotient
+  PEPS,
+  inner_network,
+  Models,
+  flatten,
+  insert_projectors,
+  split_network,
+  generate_inner_network
+using ITensorNetworkAD.Optimizations: gradient_descent
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
 @testset "test monotonic loss decrease of optimization" begin
@@ -27,18 +32,48 @@ end
 @testset "test monotonic loss decrease of optimization with inserting projectors" begin
   Nx, Ny = 3, 3
   num_sweeps = 20
+  cutoff = 1e-15
+  maxdim = 100
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)
   randn!(peps)
   H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
   losses_gd = gradient_descent(
-    peps, H_local, insert_projectors; stepsize=0.005, num_sweeps=num_sweeps
+    peps,
+    H_local,
+    insert_projectors;
+    stepsize=0.005,
+    num_sweeps=num_sweeps,
+    cutoff=cutoff,
+    maxdim=maxdim,
   )
-  losses_ls = optimize(peps, H_local, insert_projectors; num_sweeps=num_sweeps, method="GD")
+  losses_ls = optimize(
+    peps,
+    H_local,
+    insert_projectors;
+    num_sweeps=num_sweeps,
+    method="GD",
+    cutoff=cutoff,
+    maxdim=maxdim,
+  )
   losses_lbfgs = optimize(
-    peps, H_local, insert_projectors; num_sweeps=num_sweeps, method="LBFGS"
+    peps,
+    H_local,
+    insert_projectors;
+    num_sweeps=num_sweeps,
+    method="LBFGS",
+    cutoff=cutoff,
+    maxdim=maxdim,
   )
-  losses_cg = optimize(peps, H_local, insert_projectors; num_sweeps=num_sweeps, method="CG")
+  losses_cg = optimize(
+    peps,
+    H_local,
+    insert_projectors;
+    num_sweeps=num_sweeps,
+    method="CG",
+    cutoff=cutoff,
+    maxdim=maxdim,
+  )
   for i in 3:(length(losses_gd) - 1)
     @test losses_gd[i] >= losses_gd[i + 1]
     @test losses_ls[i] >= losses_ls[i + 1]
