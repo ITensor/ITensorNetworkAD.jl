@@ -23,6 +23,8 @@ function loss_grad_wrap(
   peps::PEPS, Hlocal::Array, ::typeof(insert_projectors); cutoff=1e-15, maxdim=100
 )
   center = (div(size(peps.data)[1] - 1, 2) + 1, :)
+  init_call = true
+  cache = NetworkCache()
   function loss(peps::PEPS)
     tn_split, projectors = insert_projectors(peps, center, cutoff, maxdim)
     peps_bra = addtags(linkinds, peps, "bra")
@@ -36,7 +38,11 @@ function loss_grad_wrap(
       peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors, Hlocal
     )
     variables = flatten([peps_bra_split, peps_ket_split, peps_ket_split_ham])
-    inners = batch_tensor_contraction(network_list, variables...)
+    if init_call == true
+      cache = NetworkCache(network_list)
+      init_call = false
+    end
+    inners = batch_tensor_contraction(network_list, cache, variables...)
     return rayleigh_quotient(inners)
   end
   loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]

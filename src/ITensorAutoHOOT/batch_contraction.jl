@@ -15,16 +15,45 @@ struct Executor
   feed_dict::Dict
 end
 
+# Used to cache the tensor network expressions
+# net_sums: An array of NetworkSum. Each element is an array of AutoHOOT nodes (einsum expressions)
+# index_dict: A dictionary mapping each AutoHOOT node to the index of the tensor in the input array.
+struct NetworkCache
+  net_sums::Array{<:NetworkSum}
+  index_dict::Dict
+end
+
 NetworkSum() = NetworkSum([])
 
 function Executor(networks::Array)
   nodes, node_dict = generate_einsum_expr(networks)
-  # TODO: add caching here
   net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
 @non_differentiable Executor(networks::Array)
+
+function Executor(networks::Array, cache::NetworkCache)
+  node_dict = Dict()
+  for (node, index) in cache.index_dict
+    i, j = index
+    node_dict[node] = networks[i][j]
+  end
+  return Executor(cache.net_sums, node_dict)
+end
+
+@non_differentiable Executor(networks::Array, cache::NetworkCache)
+
+NetworkCache() = NetworkCache([NetworkSum([])], Dict())
+
+function NetworkCache(networks::Array)
+  nodes, node_dict = generate_einsum_expr(networks)
+  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+  node_index_dict = generate_node_index_dict(node_dict, networks)
+  return NetworkCache(net_sums, node_index_dict)
+end
+
+@non_differentiable NetworkCache(networks::Array)
 
 # TODO: add caching intermediates here
 function run(net_sum::NetworkSum, feed_dict::Dict)
@@ -101,4 +130,8 @@ A list of tensors representing the contraction outputs of each network.
 """
 function batch_tensor_contraction(networks::Array, vars...)
   return batch_tensor_contraction(Executor(networks), vars...)
+end
+
+function batch_tensor_contraction(networks::Array, cache::NetworkCache, vars...)
+  return batch_tensor_contraction(Executor(networks, cache), vars...)
 end
