@@ -1,5 +1,8 @@
 using ITensors, AutoHOOT
 
+using ..ITensorNetworks
+using ..ITensorNetworks: ContractNode
+
 const ad = AutoHOOT.autodiff
 
 function get_symbol(i::Int)
@@ -100,15 +103,36 @@ Returns
 A list of AutoHOOT einsum node;
 A dictionary mapping AutoHOOT input node to ITensor tensor
 """
-function generate_einsum_expr(network_list::Array)
+function generate_einsum_expr(network_list::Array{Array{ITensor,1}})
   node_dict = Dict()
-  outnodes = []
-  for network in network_list
-    input_nodes = input_nodes_generation!(network, node_dict)
-    einstr = einstr_generation(network)
-    push!(outnodes, ad.einsum(einstr, input_nodes...))
-  end
+  outnodes = [generate_einsum_expr!(network, node_dict) for network in network_list]
   return outnodes, node_dict
+end
+
+function generate_einsum_expr(trees::Array{ContractNode,1})
+  node_dict = Dict()
+  outnodes = [generate_einsum_expr!(tree, node_dict) for tree in trees]
+  return outnodes, node_dict
+end
+
+function generate_einsum_expr!(network::Array{ITensor,1}, node_dict::Dict)
+  input_nodes = input_nodes_generation!(network, node_dict)
+  einstr = einstr_generation(network)
+  return ad.einsum(einstr, input_nodes...)
+end
+
+function generate_einsum_expr!(tree::ContractNode, node_dict::Dict)
+  input_nodes = []
+  for input in tree.inputs
+    if input isa ITensor
+      node = input_nodes_generation!([input], node_dict)[1]
+    else
+      node = generate_einsum_expr!(input, node_dict)
+    end
+    push!(input_nodes, node)
+  end
+  einstr = einstr_generation(tree.inputs)
+  return ad.einsum(einstr, input_nodes...)
 end
 
 function update_dict!(node_dict::Dict, tensor)
