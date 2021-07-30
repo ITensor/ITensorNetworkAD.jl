@@ -28,16 +28,16 @@ end
 NetworkSum() = NetworkSum([])
 
 function Executor(networks::Array{Union{Array{ITensor,1}},1})
-  nodes, node_dict = generate_einsum_expr(networks)
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+  nodes, node_dict = generate_einsum_expr(networks; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
 @non_differentiable Executor(networks::Array{Array{ITensor,1},1})
 
 function Executor(trees::Array{ContractNode,1})
-  nodes, node_dict = generate_einsum_expr(trees)
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+  nodes, node_dict = generate_einsum_expr(trees; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
@@ -63,8 +63,8 @@ end
 NetworkCache() = NetworkCache([NetworkSum([])], Dict())
 
 function NetworkCache(networks::Array{Array{ITensor,1},1})
-  nodes, node_dict = generate_einsum_expr(networks)
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+  nodes, node_dict = generate_einsum_expr(networks; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
   node_index_dict = generate_node_index_dict(node_dict, networks)
   return NetworkCache(net_sums, node_index_dict)
 end
@@ -72,8 +72,8 @@ end
 @non_differentiable NetworkCache(networks::Array{Array{ITensor,1},1})
 
 function NetworkCache(trees::Array{ContractNode,1})
-  nodes, node_dict = generate_einsum_expr(trees)
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+  nodes, node_dict = generate_einsum_expr(trees; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
   node_index_dict = generate_node_index_dict(node_dict, get_leaves(trees))
   return NetworkCache(net_sums, node_index_dict)
 end

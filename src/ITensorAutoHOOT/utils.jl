@@ -4,6 +4,7 @@ using ..ITensorNetworks
 using ..ITensorNetworks: ContractNode
 
 const ad = AutoHOOT.autodiff
+const go = AutoHOOT.graphops
 
 function get_symbol(i::Int)
   if i < 26
@@ -103,36 +104,40 @@ Returns
 A list of AutoHOOT einsum node;
 A dictionary mapping AutoHOOT input node to ITensor tensor
 """
-function generate_einsum_expr(network_list::Array{Array{ITensor,1}})
+function generate_einsum_expr(network_list::Array{Array{ITensor,1}}; optimize=false)
   node_dict = Dict()
-  outnodes = [generate_einsum_expr!(network, node_dict) for network in network_list]
+  outnodes = [
+    generate_einsum_expr!(network, node_dict; optimize=optimize) for network in network_list
+  ]
   return outnodes, node_dict
 end
 
-function generate_einsum_expr(trees::Array{ContractNode,1})
+function generate_einsum_expr(trees::Array{ContractNode,1}; optimize=false)
   node_dict = Dict()
-  outnodes = [generate_einsum_expr!(tree, node_dict) for tree in trees]
+  outnodes = [generate_einsum_expr!(tree, node_dict; optimize=optimize) for tree in trees]
   return outnodes, node_dict
 end
 
-function generate_einsum_expr!(network::Array{ITensor,1}, node_dict::Dict)
+function generate_einsum_expr!(network::Array{ITensor,1}, node_dict::Dict; optimize=false)
   input_nodes = input_nodes_generation!(network, node_dict)
   einstr = einstr_generation(network)
-  return ad.einsum(einstr, input_nodes...)
+  out = ad.einsum(einstr, input_nodes...)
+  return optimize ? go.generate_optimal_tree(out) : out
 end
 
-function generate_einsum_expr!(tree::ContractNode, node_dict::Dict)
+function generate_einsum_expr!(tree::ContractNode, node_dict::Dict; optimize=false)
   input_nodes = []
   for input in tree.inputs
     if input isa ITensor
       node = input_nodes_generation!([input], node_dict)[1]
     else
-      node = generate_einsum_expr!(input, node_dict)
+      node = generate_einsum_expr!(input, node_dict; optimize=optimize)
     end
     push!(input_nodes, node)
   end
   einstr = einstr_generation(tree.inputs)
-  return ad.einsum(einstr, input_nodes...)
+  out = ad.einsum(einstr, input_nodes...)
+  return optimize ? go.generate_optimal_tree(out) : out
 end
 
 function update_dict!(node_dict::Dict, tensor)
