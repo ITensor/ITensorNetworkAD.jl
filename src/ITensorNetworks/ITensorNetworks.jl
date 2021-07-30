@@ -4,7 +4,7 @@ using ITensors
 
 using ITensors: data
 
-include("contraction_tree.jl")
+include("subnetwork.jl")
 include("models/models.jl")
 include("ITensors.jl")
 include("lattices.jl")

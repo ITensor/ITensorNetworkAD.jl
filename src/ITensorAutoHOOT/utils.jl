@@ -1,7 +1,7 @@
 using ITensors, AutoHOOT
 
 using ..ITensorNetworks
-using ..ITensorNetworks: ContractNode
+using ..ITensorNetworks: SubNetwork
 
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
@@ -112,7 +112,7 @@ function generate_einsum_expr(network_list::Vector{Vector{ITensor}}; optimize=fa
   return outnodes, node_dict
 end
 
-function generate_einsum_expr(trees::Vector{ContractNode}; optimize=false)
+function generate_einsum_expr(trees::Vector{SubNetwork}; optimize=false)
   node_dict = Dict()
   outnodes = [generate_einsum_expr!(tree, node_dict; optimize=optimize) for tree in trees]
   return outnodes, node_dict
@@ -125,7 +125,7 @@ function generate_einsum_expr!(network::Vector{ITensor}, node_dict::Dict; optimi
   return optimize ? go.generate_optimal_tree(out) : out
 end
 
-function generate_einsum_expr!(tree::ContractNode, node_dict::Dict; optimize=false)
+function generate_einsum_expr!(tree::SubNetwork, node_dict::Dict; optimize=false)
   input_nodes = []
   for input in tree.inputs
     if input isa ITensor

@@ -2,7 +2,7 @@ using ITensorNetworkAD
 using AutoHOOT
 using ITensors
 using Zygote
-using ITensorNetworkAD.ITensorNetworks: ContractNode
+using ITensorNetworkAD.ITensorNetworks: SubNetwork
 
 const go = AutoHOOT.graphops
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
@@ -25,9 +25,9 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
   network = itensorah.extract_network(nodes[1], dict)
   out2 = contract(network)
 
-  AB = ContractNode([A, B])
-  ABC = ContractNode([AB, C])
-  ABCD = ContractNode([D, ABC])
+  AB = SubNetwork([A, B])
+  ABC = SubNetwork([AB, C])
+  ABCD = SubNetwork([D, ABC])
   nodes, dict = itensorah.generate_einsum_expr([ABCD])
   network = itensorah.extract_network(nodes[1], dict)
   out3 = contract(network)
@@ -119,7 +119,7 @@ end
     return sum(out)[]
   end
   function tree_network(A)
-    tensor_network = ContractNode(ContractNode(A, B), C)
+    tensor_network = SubNetwork(SubNetwork(A, B), C)
     out = itensorah.batch_tensor_contraction([tensor_network], A)
     return sum(out)[]
   end

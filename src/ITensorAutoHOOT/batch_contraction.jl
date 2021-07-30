@@ -2,7 +2,7 @@ using AutoHOOT
 using ChainRulesCore
 
 using ..ITensorNetworks
-using ..ITensorNetworks: ContractNode, get_leaves
+using ..ITensorNetworks: SubNetwork, get_leaves
 
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
@@ -35,13 +35,13 @@ end
 
 @non_differentiable Executor(networks::Vector{Vector{ITensor}})
 
-function Executor(trees::Vector{ContractNode})
+function Executor(trees::Vector{SubNetwork})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
-@non_differentiable Executor(trees::Vector{ContractNode})
+@non_differentiable Executor(trees::Vector{SubNetwork})
 
 function Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
   node_dict = Dict()
@@ -54,11 +54,11 @@ end
 
 @non_differentiable Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
 
-function Executor(trees::Vector{ContractNode}, cache::NetworkCache)
+function Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
   return Executor(get_leaves(trees), cache)
 end
 
-@non_differentiable Executor(trees::Vector{ContractNode}, cache::NetworkCache)
+@non_differentiable Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
 
 NetworkCache() = NetworkCache([NetworkSum([])], Dict())
 
@@ -71,14 +71,14 @@ end
 
 @non_differentiable NetworkCache(networks::Vector{Vector{ITensor}})
 
-function NetworkCache(trees::Vector{ContractNode})
+function NetworkCache(trees::Vector{SubNetwork})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   node_index_dict = generate_node_index_dict(node_dict, get_leaves(trees))
   return NetworkCache(net_sums, node_index_dict)
 end
 
-@non_differentiable NetworkCache(trees::Vector{ContractNode})
+@non_differentiable NetworkCache(trees::Vector{SubNetwork})
 
 """
 Generate a cached network, under the constraint that tensors in contract_order will be
@@ -179,7 +179,7 @@ function batch_tensor_contraction(networks::Vector{Vector{ITensor}}, vars...)
   return batch_tensor_contraction(Executor(networks), vars...)
 end
 
-function batch_tensor_contraction(trees::Vector{ContractNode}, vars...)
+function batch_tensor_contraction(trees::Vector{SubNetwork}, vars...)
   return batch_tensor_contraction(Executor(trees), vars...)
 end
 
@@ -189,6 +189,6 @@ function batch_tensor_contraction(
   return batch_tensor_contraction(Executor(networks, cache), vars...)
 end
 
-function batch_tensor_contraction(trees::Vector{ContractNode}, cache::NetworkCache, vars...)
+function batch_tensor_contraction(trees::Vector{SubNetwork}, cache::NetworkCache, vars...)
   return batch_tensor_contraction(Executor(trees, cache), vars...)
 end

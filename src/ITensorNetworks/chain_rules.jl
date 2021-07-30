@@ -95,4 +95,4 @@ end
 
 @non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
 
-@non_differentiable ContractNode(inputs::Union{ContractNode,ITensor}...)
+@non_differentiable SubNetwork(inputs::Union{SubNetwork,ITensor}...)
