@@ -105,7 +105,7 @@ end
   @test isapprox(gradB_direct, gradB)
 end
 
-@testset "test zygote interface" begin
+@testset "test batch_tensor_contraction" begin
   i = Index(2, "i")
   j = Index(3, "j")
   k = Index(2, "k")
@@ -118,8 +118,15 @@ end
     out = itensorah.batch_tensor_contraction([tensor_network], A)
     return sum(out)[]
   end
+  function tree_network(A)
+    tensor_network = ContractNode(ContractNode(A, B), C)
+    out = itensorah.batch_tensor_contraction([tensor_network], A)
+    return sum(out)[]
+  end
   grad_A = gradient(network, A)
+  tree_grad_A = gradient(tree_network, A)
   @test isapprox(grad_A[1], B * C)
+  @test isapprox(tree_grad_A[1], B * C)
 end
 
 @testset "test zygote interface for inner product" begin

@@ -2,6 +2,8 @@ struct ContractNode
   inputs::Array{Union{ContractNode,ITensor},1}
 end
 
+ContractNode(inputs::Union{ContractNode,ITensor}...) = ContractNode(collect(inputs))
+
 function get_leaves(trees::Array{ContractNode,1})
   return [get_leaves(tree) for tree in trees]
 end
