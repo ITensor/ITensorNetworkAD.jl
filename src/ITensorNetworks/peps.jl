@@ -168,7 +168,7 @@ An array of networks.
 function generate_inner_network(
   peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
 )
-  network_list = []
+  network_list = Vector{Vector{ITensor}}()
   for H_term in Hlocal
     inner = inner_network(
       peps, peps_prime, peps_prime_ham, H_term.mpo, [H_term.coord1, H_term.coord2]

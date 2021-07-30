@@ -4,6 +4,7 @@ using ITensors
 
 using ITensors: data
 
+include("subnetwork.jl")
 include("models/models.jl")
 include("ITensors.jl")
 include("lattices.jl")

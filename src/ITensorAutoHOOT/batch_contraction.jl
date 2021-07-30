@@ -1,6 +1,8 @@
 using AutoHOOT
 using ChainRulesCore
-using ITensors: setinds
+
+using ..ITensorNetworks
+using ..ITensorNetworks: SubNetwork, get_leaves
 
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
@@ -25,15 +27,23 @@ end
 
 NetworkSum() = NetworkSum([])
 
-function Executor(networks::Array)
-  nodes, node_dict = generate_einsum_expr(networks)
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+function Executor(networks::Vector{Vector{ITensor}})
+  nodes, node_dict = generate_einsum_expr(networks; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
-@non_differentiable Executor(networks::Array)
+@non_differentiable Executor(networks::Vector{Vector{ITensor}})
 
-function Executor(networks::Array, cache::NetworkCache)
+function Executor(trees::Vector{SubNetwork})
+  nodes, node_dict = generate_einsum_expr(trees; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
+  return Executor(net_sums, node_dict)
+end
+
+@non_differentiable Executor(trees::Vector{SubNetwork})
+
+function Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
   node_dict = Dict()
   for (node, index) in cache.index_dict
     i, j = index
@@ -42,18 +52,55 @@ function Executor(networks::Array, cache::NetworkCache)
   return Executor(cache.net_sums, node_dict)
 end
 
-@non_differentiable Executor(networks::Array, cache::NetworkCache)
+@non_differentiable Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
+
+function Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
+  return Executor(get_leaves(trees), cache)
+end
+
+@non_differentiable Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
 
 NetworkCache() = NetworkCache([NetworkSum([])], Dict())
 
-function NetworkCache(networks::Array)
-  nodes, node_dict = generate_einsum_expr(networks)
-  net_sums = [NetworkSum([go.generate_optimal_tree(n)]) for n in nodes]
+function NetworkCache(networks::Vector{Vector{ITensor}})
+  nodes, node_dict = generate_einsum_expr(networks; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
   node_index_dict = generate_node_index_dict(node_dict, networks)
   return NetworkCache(net_sums, node_index_dict)
 end
 
-@non_differentiable NetworkCache(networks::Array)
+@non_differentiable NetworkCache(networks::Vector{Vector{ITensor}})
+
+function NetworkCache(trees::Vector{SubNetwork})
+  nodes, node_dict = generate_einsum_expr(trees; optimize=true)
+  net_sums = [NetworkSum([n]) for n in nodes]
+  node_index_dict = generate_node_index_dict(node_dict, get_leaves(trees))
+  return NetworkCache(net_sums, node_index_dict)
+end
+
+@non_differentiable NetworkCache(trees::Vector{SubNetwork})
+
+"""
+Generate a cached network, under the constraint that tensors in contract_order will be
+contracted based on the order from Array start to the end.
+"""
+# NOTE: this function is experimental and it hasn't been used in experiments yet.
+function NetworkCache(networks::Vector{Vector{ITensor}}, contract_order::Vector{ITensor})
+  nodes, node_dict = generate_einsum_expr(networks)
+  constrained_nodes = [retrieve_key(node_dict, t) for t in contract_order]
+  function contraction_path(node)
+    constrained_inputs = [n for n in constrained_nodes if n in node.inputs]
+    out = go.generate_optimal_tree_w_constraint(node, constrained_inputs)
+    return out
+  end
+  net_sums = [NetworkSum([contraction_path(n)]) for n in nodes]
+  node_index_dict = generate_node_index_dict(node_dict, networks)
+  return NetworkCache(net_sums, node_index_dict)
+end
+
+@non_differentiable NetworkCache(
+  networks::Vector{Vector{ITensor}}, contract_order::Vector{ITensor}
+)
 
 # TODO: add caching intermediates here
 function run(net_sum::NetworkSum, feed_dict::Dict)
@@ -128,10 +175,20 @@ Returns
 -------
 A list of tensors representing the contraction outputs of each network.
 """
-function batch_tensor_contraction(networks::Array, vars...)
+function batch_tensor_contraction(networks::Vector{Vector{ITensor}}, vars...)
   return batch_tensor_contraction(Executor(networks), vars...)
 end
 
-function batch_tensor_contraction(networks::Array, cache::NetworkCache, vars...)
+function batch_tensor_contraction(trees::Vector{SubNetwork}, vars...)
+  return batch_tensor_contraction(Executor(trees), vars...)
+end
+
+function batch_tensor_contraction(
+  networks::Vector{Vector{ITensor}}, cache::NetworkCache, vars...
+)
   return batch_tensor_contraction(Executor(networks, cache), vars...)
+end
+
+function batch_tensor_contraction(trees::Vector{SubNetwork}, cache::NetworkCache, vars...)
+  return batch_tensor_contraction(Executor(trees, cache), vars...)
 end

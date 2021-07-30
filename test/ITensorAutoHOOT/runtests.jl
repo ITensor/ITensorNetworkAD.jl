@@ -2,6 +2,7 @@ using ITensorNetworkAD
 using AutoHOOT
 using ITensors
 using Zygote
+using ITensorNetworkAD.ITensorNetworks: SubNetwork
 
 const go = AutoHOOT.graphops
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
@@ -11,18 +12,28 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
   j = Index(3, "j")
   k = Index(2, "k")
   l = Index(4, "l")
+  m = Index(5, "m")
 
   A = randomITensor(i, j)
   B = randomITensor(j, k)
   C = randomITensor(k, l)
+  D = randomITensor(l, m)
 
-  out = A * B * C
-  network = [A, C, B]
-
+  out = A * B * C * D
+  network = [A, C, B, D]
   nodes, dict = itensorah.generate_einsum_expr([network])
   network = itensorah.extract_network(nodes[1], dict)
-  out2 = network[1] * network[2] * network[3]
+  out2 = contract(network)
+
+  AB = SubNetwork([A, B])
+  ABC = SubNetwork([AB, C])
+  ABCD = SubNetwork([D, ABC])
+  nodes, dict = itensorah.generate_einsum_expr([ABCD])
+  network = itensorah.extract_network(nodes[1], dict)
+  out3 = contract(network)
+
   @test isapprox(out, out2)
+  @test isapprox(out, out3)
 end
 
 @testset "test compute" begin
@@ -94,7 +105,7 @@ end
   @test isapprox(gradB_direct, gradB)
 end
 
-@testset "test zygote interface" begin
+@testset "test batch_tensor_contraction" begin
   i = Index(2, "i")
   j = Index(3, "j")
   k = Index(2, "k")
@@ -107,8 +118,15 @@ end
     out = itensorah.batch_tensor_contraction([tensor_network], A)
     return sum(out)[]
   end
+  function tree_network(A)
+    tensor_network = SubNetwork(SubNetwork(A, B), C)
+    out = itensorah.batch_tensor_contraction([tensor_network], A)
+    return sum(out)[]
+  end
   grad_A = gradient(network, A)
+  tree_grad_A = gradient(tree_network, A)
   @test isapprox(grad_A[1], B * C)
+  @test isapprox(tree_grad_A[1], B * C)
 end
 
 @testset "test zygote interface for inner product" begin

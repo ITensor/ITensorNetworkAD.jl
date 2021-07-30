@@ -94,3 +94,5 @@ end
 @non_differentiable insert_projectors(peps::PEPS, center, cutoff, maxdim)
 
 @non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
+
+@non_differentiable SubNetwork(inputs::Union{SubNetwork,ITensor}...)
