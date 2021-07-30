@@ -27,23 +27,23 @@ end
 
 NetworkSum() = NetworkSum([])
 
-function Executor(networks::Array{Union{Array{ITensor,1}},1})
+function Executor(networks::Vector{Vector{ITensor}})
   nodes, node_dict = generate_einsum_expr(networks; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
-@non_differentiable Executor(networks::Array{Array{ITensor,1},1})
+@non_differentiable Executor(networks::Vector{Vector{ITensor}})
 
-function Executor(trees::Array{ContractNode,1})
+function Executor(trees::Vector{ContractNode})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
-@non_differentiable Executor(trees::Array{ContractNode,1})
+@non_differentiable Executor(trees::Vector{ContractNode})
 
-function Executor(networks::Array{Array{ITensor,1},1}, cache::NetworkCache)
+function Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
   node_dict = Dict()
   for (node, index) in cache.index_dict
     i, j = index
@@ -52,40 +52,40 @@ function Executor(networks::Array{Array{ITensor,1},1}, cache::NetworkCache)
   return Executor(cache.net_sums, node_dict)
 end
 
-@non_differentiable Executor(networks::Array{Array{ITensor,1},1}, cache::NetworkCache)
+@non_differentiable Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
 
-function Executor(trees::Array{ContractNode,1}, cache::NetworkCache)
+function Executor(trees::Vector{ContractNode}, cache::NetworkCache)
   return Executor(get_leaves(trees), cache)
 end
 
-@non_differentiable Executor(trees::Array{ContractNode,1}, cache::NetworkCache)
+@non_differentiable Executor(trees::Vector{ContractNode}, cache::NetworkCache)
 
 NetworkCache() = NetworkCache([NetworkSum([])], Dict())
 
-function NetworkCache(networks::Array{Array{ITensor,1},1})
+function NetworkCache(networks::Vector{Vector{ITensor}})
   nodes, node_dict = generate_einsum_expr(networks; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   node_index_dict = generate_node_index_dict(node_dict, networks)
   return NetworkCache(net_sums, node_index_dict)
 end
 
-@non_differentiable NetworkCache(networks::Array{Array{ITensor,1},1})
+@non_differentiable NetworkCache(networks::Vector{Vector{ITensor}})
 
-function NetworkCache(trees::Array{ContractNode,1})
+function NetworkCache(trees::Vector{ContractNode})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   node_index_dict = generate_node_index_dict(node_dict, get_leaves(trees))
   return NetworkCache(net_sums, node_index_dict)
 end
 
-@non_differentiable NetworkCache(trees::Array{ContractNode,1})
+@non_differentiable NetworkCache(trees::Vector{ContractNode})
 
 """
 Generate a cached network, under the constraint that tensors in contract_order will be
 contracted based on the order from Array start to the end.
 """
 # NOTE: this function is experimental and it hasn't been used in experiments yet.
-function NetworkCache(networks::Array{Array{ITensor,1},1}, contract_order::Array{ITensor})
+function NetworkCache(networks::Vector{Vector{ITensor}}, contract_order::Vector{ITensor})
   nodes, node_dict = generate_einsum_expr(networks)
   constrained_nodes = [retrieve_key(node_dict, t) for t in contract_order]
   function contraction_path(node)
@@ -99,7 +99,7 @@ function NetworkCache(networks::Array{Array{ITensor,1},1}, contract_order::Array
 end
 
 @non_differentiable NetworkCache(
-  networks::Array{Array{ITensor,1},1}, contract_order::Array{ITensor}
+  networks::Vector{Vector{ITensor}}, contract_order::Vector{ITensor}
 )
 
 # TODO: add caching intermediates here
@@ -175,22 +175,20 @@ Returns
 -------
 A list of tensors representing the contraction outputs of each network.
 """
-function batch_tensor_contraction(networks::Array{Array{ITensor,1},1}, vars...)
+function batch_tensor_contraction(networks::Vector{Vector{ITensor}}, vars...)
   return batch_tensor_contraction(Executor(networks), vars...)
 end
 
-function batch_tensor_contraction(trees::Array{ContractNode,1}, vars...)
+function batch_tensor_contraction(trees::Vector{ContractNode}, vars...)
   return batch_tensor_contraction(Executor(trees), vars...)
 end
 
 function batch_tensor_contraction(
-  networks::Array{Array{ITensor,1},1}, cache::NetworkCache, vars...
+  networks::Vector{Vector{ITensor}}, cache::NetworkCache, vars...
 )
   return batch_tensor_contraction(Executor(networks, cache), vars...)
 end
 
-function batch_tensor_contraction(
-  trees::Array{ContractNode,1}, cache::NetworkCache, vars...
-)
+function batch_tensor_contraction(trees::Vector{ContractNode}, cache::NetworkCache, vars...)
   return batch_tensor_contraction(Executor(trees, cache), vars...)
 end

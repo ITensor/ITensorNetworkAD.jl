@@ -104,7 +104,7 @@ Returns
 A list of AutoHOOT einsum node;
 A dictionary mapping AutoHOOT input node to ITensor tensor
 """
-function generate_einsum_expr(network_list::Array{Array{ITensor,1}}; optimize=false)
+function generate_einsum_expr(network_list::Vector{Vector{ITensor}}; optimize=false)
   node_dict = Dict()
   outnodes = [
     generate_einsum_expr!(network, node_dict; optimize=optimize) for network in network_list
@@ -112,13 +112,13 @@ function generate_einsum_expr(network_list::Array{Array{ITensor,1}}; optimize=fa
   return outnodes, node_dict
 end
 
-function generate_einsum_expr(trees::Array{ContractNode,1}; optimize=false)
+function generate_einsum_expr(trees::Vector{ContractNode}; optimize=false)
   node_dict = Dict()
   outnodes = [generate_einsum_expr!(tree, node_dict; optimize=optimize) for tree in trees]
   return outnodes, node_dict
 end
 
-function generate_einsum_expr!(network::Array{ITensor,1}, node_dict::Dict; optimize=false)
+function generate_einsum_expr!(network::Vector{ITensor}, node_dict::Dict; optimize=false)
   input_nodes = input_nodes_generation!(network, node_dict)
   einstr = einstr_generation(network)
   out = ad.einsum(einstr, input_nodes...)

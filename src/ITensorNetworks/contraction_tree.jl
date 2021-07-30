@@ -1,10 +1,10 @@
 struct ContractNode
-  inputs::Array{Union{ContractNode,ITensor},1}
+  inputs::Vector{Union{ContractNode,ITensor}}
 end
 
 ContractNode(inputs::Union{ContractNode,ITensor}...) = ContractNode(collect(inputs))
 
-function get_leaves(trees::Array{ContractNode,1})
+function get_leaves(trees::Vector{ContractNode})
   return [get_leaves(tree) for tree in trees]
 end
 
