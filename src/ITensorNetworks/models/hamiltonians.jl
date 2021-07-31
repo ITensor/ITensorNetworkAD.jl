@@ -7,6 +7,11 @@ struct LocalMPO
   coord2::Pair{<:Integer,<:Integer}
 end
 
+struct LineMPO
+  mpo::MPO
+  coord::Union{Tuple{Colon,<:Integer},Tuple{<:Integer,Colon}}
+end
+
 # Transverse field
 # The critical point is h = 1.0
 # This is the most challenging part of the model for DMRG
@@ -25,8 +30,12 @@ function mpo(::Model"tfim", sites::Matrix{<:Index}; h::Float64)
   return MPO(opsum, sites_vec)
 end
 
-# Get the local hamiltonian term of a 2D grid
-function localham_term(::Model"tfim", sites::Matrix{<:Index}, bond; h::Float64)
+function localham_term(
+  ::Model"tfim",
+  sites::Matrix{<:Index},
+  bond::Tuple{Tuple{<:Integer,<:Integer},Tuple{<:Integer,<:Integer}};
+  h::Float64,
+)
   Ny, Nx = size(sites)
   coord1, coord2 = bond
   opsum = OpSum()
@@ -41,7 +50,6 @@ function localham_term(::Model"tfim", sites::Matrix{<:Index}, bond; h::Float64)
   return LocalMPO(mpo, coord1[1] => coord1[2], coord2[1] => coord2[2])
 end
 
-# Return a list of LocalMPO
 function localham(m::Model, sites; kwargs...)
   Ny, Nx = size(sites)
   lattice = Square((Ny, Nx))
@@ -49,8 +57,41 @@ function localham(m::Model, sites; kwargs...)
   return [localham_term(m, sites, bond; kwargs...) for bond in bds]
 end
 
+function localham_term(
+  ::Model"tfim", sites::Matrix{<:Index}, bond::Tuple{Colon,<:Integer}; h::Float64
+)
+  Ny, Nx = size(sites)
+  opsum = OpSum()
+  for i in 1:(Ny - 1)
+    opsum += -1, "X", i, "X", i + 1
+    opsum += h, "Z", i
+  end
+  opsum += h, "Z", Ny
+  return LineMPO(MPO(opsum, sites[bond...]), bond)
+end
+
+function localham_term(
+  ::Model"tfim", sites::Matrix{<:Index}, bond::Tuple{<:Integer,Colon}; h::Float64
+)
+  Ny, Nx = size(sites)
+  opsum = OpSum()
+  for i in 1:(Nx - 1)
+    opsum += -1, "X", i, "X", i + 1
+  end
+  return LineMPO(MPO(opsum, sites[bond...]), bond)
+end
+
+function lineham(m::Model, sites; kwargs...)
+  Ny, Nx = size(sites)
+  lattice = Square((Ny, Nx))
+  bonds_row = [(i, :) for i in 1:Ny]
+  bonds_column = [(:, i) for i in 1:Nx]
+  bds = vcat(bonds_row, bonds_column)
+  return [localham_term(m, sites, bond; kwargs...) for bond in bds]
+end
+
 # Check that the local Hamiltonian is the same as the MPO
-function checklocalham(Hlocal, H, sites)
+function checkham(Hlocal::Array{LocalMPO}, H, sites)
   @disable_warn_order begin
     Ny, Nx = size(sites)
     lattice = Square((Ny, Nx))
@@ -66,6 +107,36 @@ function checklocalham(Hlocal, H, sites)
         end
       end
       Hlocal_full += Hlocalterm_full
+    end
+    @show norm(Hlocal_full - prod(H))
+  end
+  return isapprox(norm(Hlocal_full), norm(prod(H)))
+end
+
+function checkham(Hline::Array{LineMPO}, H, sites)
+  @disable_warn_order begin
+    Ny, Nx = size(sites)
+    Hlocal_full = ITensor()
+    for h in Hline
+      h_full = prod(h.mpo)
+      if h.coord[1] isa Colon
+        for y in 1:Ny
+          for x in 1:Nx
+            if x != h.coord[2]
+              h_full *= op("Id", vec(sites), (x - 1) * Ny + y)
+            end
+          end
+        end
+      else
+        for y in 1:Ny
+          for x in 1:Nx
+            if y != h.coord[1]
+              h_full *= op("Id", vec(sites), (x - 1) * Ny + y)
+            end
+          end
+        end
+      end
+      Hlocal_full += h_full
     end
     @show norm(Hlocal_full - prod(H))
   end

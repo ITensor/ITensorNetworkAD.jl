@@ -78,9 +78,11 @@ end
 function neighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false) where {N}
   return filterneighbors(≠, lattice, site; periodic=periodic)
 end
+
 function inneighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false) where {N}
   return filterneighbors(>, lattice, site; periodic=periodic)
 end
+
 function outneighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false) where {N}
   return filterneighbors(<, lattice, site; periodic=periodic)
 end
@@ -108,4 +110,16 @@ function bonds(lattice::HyperCubic; periodic=false)
   return [
     (s, n) for s in sites(lattice) for n in outneighbors(lattice, s; periodic=periodic)
   ]
+end
+
+function bonds(lattice::Square, coord::Tuple{Colon,<:Integer})
+  rowsize = lattice.dims[1]
+  colsites = [(i, coord[2]) for i in 1:(rowsize - 1)]
+  return [(s, (s[1] + 1, s[2])) for s in colsites]
+end
+
+function bonds(lattice::Square, coord::Tuple{<:Integer,Colon})
+  colsize = lattice.dims[2]
+  rowsites = [(coord[1], i) for i in 1:(colsize - 1)]
+  return [(s, (s[1], s[2] + 1)) for s in rowsites]
 end
