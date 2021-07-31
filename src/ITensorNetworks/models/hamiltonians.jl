@@ -1,4 +1,5 @@
 using ITensors
+include("../lattices.jl")
 
 struct LocalMPO
   mpo::MPO
@@ -27,44 +28,41 @@ end
 # Get the local hamiltonian term of a 2D grid
 function localham_term(::Model"tfim", sites::Matrix{<:Index}, bond; h::Float64)
   Ny, Nx = size(sites)
-  sites_vec = vec(sites)
-  n1, n2 = bond.s1, bond.s2
+  coord1, coord2 = bond
   opsum = OpSum()
   opsum += -1, "X", 1, "X", 2
-  if n2 == n1 + 1
+  if coord2[1] == coord1[1] + 1
     opsum += h, "Z", 1
   end
-  if n2 == n1 + 1 && n2 % Ny == 0
+  if coord2[1] == coord1[1] + 1 && coord2[1] == Ny
     opsum += h, "Z", 2
   end
-  mpo = MPO(opsum, sites_vec[[n1, n2]])
-  coord1 = ((n1 - 1) % Ny + 1) => trunc(Int, (n1 - 1) / Ny) + 1
-  coord2 = ((n2 - 1) % Ny + 1) => trunc(Int, (n2 - 1) / Ny) + 1
-  return LocalMPO(mpo, coord1, coord2)
+  mpo = MPO(opsum, [sites[coord1...], sites[coord2...]])
+  return LocalMPO(mpo, coord1[1] => coord1[2], coord2[1] => coord2[2])
 end
 
 # Return a list of LocalMPO
 function localham(m::Model, sites; kwargs...)
   Ny, Nx = size(sites)
-  lattice = square_lattice(Nx, Ny; yperiodic=false)
-  return [localham_term(m, sites, bond; kwargs...) for bond in lattice]
+  lattice = Square((Ny, Nx))
+  bds = bonds(lattice; periodic=false)
+  return [localham_term(m, sites, bond; kwargs...) for bond in bds]
 end
 
 # Check that the local Hamiltonian is the same as the MPO
 function checklocalham(Hlocal, H, sites)
   @disable_warn_order begin
     Ny, Nx = size(sites)
-    sites_vec = reshape(sites, Nx * Ny)
-    lattice = square_lattice(Nx, Ny; yperiodic=false)
-
-    # This scales exponentially
+    lattice = Square((Ny, Nx))
+    bds = bonds(lattice; periodic=false)
     Hlocal_full = ITensor()
-    for (i, bond) in enumerate(lattice)
+    for (i, bond) in enumerate(bds)
       Hlocalterm_full = prod(Hlocal[i].mpo)
-      n1, n2 = bond.s1, bond.s2
-      for m in 1:(Nx * Ny)
-        if !(m in (n1, n2))
-          Hlocalterm_full *= op("Id", sites_vec, m)
+      for y in 1:Ny
+        for x in 1:Nx
+          if !((y, x) in bond)
+            Hlocalterm_full *= op("Id", vec(sites), (x - 1) * Ny + y)
+          end
         end
       end
       Hlocal_full += Hlocalterm_full
