@@ -3,8 +3,8 @@ include("../lattices.jl")
 
 struct LocalMPO
   mpo::MPO
-  coord1::Pair{<:Integer,<:Integer}
-  coord2::Pair{<:Integer,<:Integer}
+  coord1::Tuple{<:Integer,<:Integer}
+  coord2::Tuple{<:Integer,<:Integer}
 end
 
 struct LineMPO
@@ -47,7 +47,7 @@ function localham_term(
     opsum += h, "Z", 2
   end
   mpo = MPO(opsum, [sites[coord1...], sites[coord2...]])
-  return LocalMPO(mpo, coord1[1] => coord1[2], coord2[1] => coord2[2])
+  return LocalMPO(mpo, coord1, coord2)
 end
 
 function localham(m::Model, sites; kwargs...)

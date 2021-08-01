@@ -80,7 +80,7 @@ end
 
 # gradient of this function returns nothing.
 @non_differentiable generate_inner_network(
-  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
+  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::Array
 )
 
 @non_differentiable generate_inner_network(
@@ -88,7 +88,7 @@ end
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
   projectors::Array{<:ITensor,1},
-  Hlocal::Array,
+  Hs::Array,
 )
 
 @non_differentiable insert_projectors(peps::PEPS, center, cutoff, maxdim)
