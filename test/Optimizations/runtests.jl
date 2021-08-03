@@ -10,12 +10,18 @@ using ITensorNetworkAD.ITensorNetworks:
 using ITensorNetworkAD.Optimizations: gradient_descent
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
-@testset "test monotonic loss decrease of optimization" begin
+@testset "test the loss of optimization" begin
   Nx, Ny = 2, 3
   num_sweeps = 20
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=10)
   randn!(peps)
+  psi0 = randomMPS(vec(sites); linkdims=10)
+  sweeps = Sweeps(10)
+  maxdim!(sweeps, 10)
+
+  H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
+  energy, _ = dmrg(H, psi0, sweeps)
   H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
   losses_gd = gradient_descent(peps, H_line; stepsize=0.005, num_sweeps=num_sweeps)
   losses_ls = optimize(peps, H_line; num_sweeps=num_sweeps, method="GD")
@@ -27,6 +33,10 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
     @test losses_lbfgs[i] >= losses_lbfgs[i + 1]
     @test losses_cg[i] >= losses_cg[i + 1]
   end
+  @test abs(energy - losses_gd[end]) < 0.2
+  @test abs(energy - losses_ls[end]) < 0.2
+  @test abs(energy - losses_lbfgs[end]) < 0.2
+  @test abs(energy - losses_cg[end]) < 0.2
 end
 
 @testset "test the equivalence of local and line hamiltonian" begin
