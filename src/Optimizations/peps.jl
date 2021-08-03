@@ -6,11 +6,11 @@ using ..ITensorNetworks:
   PEPS, generate_inner_network, flatten, insert_projectors, split_network, rayleigh_quotient
 using ..ITensorNetworks: broadcast_add, broadcast_minus, broadcast_mul, broadcast_inner
 
-function loss_grad_wrap(peps::PEPS, Hlocal::Array)
+function loss_grad_wrap(peps::PEPS, Hs::Array)
   function loss(peps::PEPS)
     peps_prime = prime(linkinds, peps)
     peps_prime_ham = prime(peps)
-    network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
+    network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hs)
     variables = flatten([peps, peps_prime, peps_prime_ham])
     inners = batch_tensor_contraction(network_list, variables...)
     return rayleigh_quotient(inners)
@@ -20,7 +20,7 @@ function loss_grad_wrap(peps::PEPS, Hlocal::Array)
 end
 
 function loss_grad_wrap(
-  peps::PEPS, Hlocal::Array, ::typeof(insert_projectors); cutoff=1e-15, maxdim=100
+  peps::PEPS, Hs::Array, ::typeof(insert_projectors); cutoff=1e-15, maxdim=100
 )
   center = (div(size(peps.data)[1] - 1, 2) + 1, :)
   init_call = true
@@ -35,7 +35,7 @@ function loss_grad_wrap(
     peps_ket_split_ham = prime(sites, peps_ket_split)
     # generate network
     network_list = generate_inner_network(
-      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors, Hlocal
+      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors, Hs
     )
     variables = flatten([peps_bra_split, peps_ket_split, peps_ket_split_ham])
     if init_call == true
@@ -65,39 +65,37 @@ end
 Parameters
 ----------
 peps: a peps network with datatype PEPS
-Hlocal: An array of MPO operators with datatype LocalMPO
+Hs: An array of MPO operators with datatype LocalMPO or LineMPO
 stepsize: step size used in the gradient descent
 num_sweeps: number of gradient descent sweeps/iterations
 Returns
 -------
 An array containing Rayleigh quotient losses after each iteration.
 """
-function gradient_descent(peps::PEPS, Hlocal::Array; stepsize::Float64, num_sweeps::Int)
-  loss_w_grad = loss_grad_wrap(peps, Hlocal)
+function gradient_descent(peps::PEPS, Hs::Array; stepsize::Float64, num_sweeps::Int)
+  loss_w_grad = loss_grad_wrap(peps, Hs)
   return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
 end
 
 function gradient_descent(
   peps::PEPS,
-  Hlocal::Array,
+  Hs::Array,
   ::typeof(insert_projectors);
   stepsize::Float64,
   num_sweeps::Int,
   cutoff=1e-15,
   maxdim=100,
 )
-  loss_w_grad = loss_grad_wrap(
-    peps, Hlocal, insert_projectors; cutoff=cutoff, maxdim=maxdim
-  )
+  loss_w_grad = loss_grad_wrap(peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim)
   return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
 end
 
 function gd_error_tracker(
-  peps::PEPS, Hlocal::Array; stepsize::Float64, num_sweeps::Int, cutoff=cutoff, maxdim=100
+  peps::PEPS, Hs::Array; stepsize::Float64, num_sweeps::Int, cutoff=cutoff, maxdim=100
 )
-  loss_w_grad = loss_grad_wrap(peps, Hlocal)
+  loss_w_grad = loss_grad_wrap(peps, Hs)
   loss_w_grad_approx = loss_grad_wrap(
-    peps, Hlocal, insert_projectors; cutoff=cutoff, maxdim=maxdim
+    peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim
   )
   for iter in 1:num_sweeps
     l, g = loss_w_grad(peps)
@@ -133,22 +131,20 @@ function OptimKit.optimize(peps::PEPS, loss_w_grad; num_sweeps::Int, method="GD"
   return history[:, 1]
 end
 
-function OptimKit.optimize(peps::PEPS, Hlocal::Array; num_sweeps::Int, method="GD")
-  loss_w_grad = loss_grad_wrap(peps, Hlocal)
+function OptimKit.optimize(peps::PEPS, Hs::Array; num_sweeps::Int, method="GD")
+  loss_w_grad = loss_grad_wrap(peps, Hs)
   return optimize(peps, loss_w_grad; num_sweeps=num_sweeps, method=method)
 end
 
 function OptimKit.optimize(
   peps::PEPS,
-  Hlocal::Array,
+  Hs::Array,
   ::typeof(insert_projectors);
   num_sweeps::Int,
   method="GD",
   cutoff=1e-15,
   maxdim=100,
 )
-  loss_w_grad = loss_grad_wrap(
-    peps, Hlocal, insert_projectors; cutoff=cutoff, maxdim=maxdim
-  )
+  loss_w_grad = loss_grad_wrap(peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim)
   return optimize(peps, loss_w_grad; num_sweeps=num_sweeps, method=method)
 end

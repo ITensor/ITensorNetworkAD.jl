@@ -1,4 +1,5 @@
 using Random
+using .Models
 
 """
 A finite size PEPS type.
@@ -126,8 +127,8 @@ function inner_network(
   dimy, dimx = size(peps.data)
   for ii in 1:dimx
     for jj in 1:dimy
-      if (jj => ii) in coordinates
-        index = findall(x -> x == (jj => ii), coordinates)
+      if (jj, ii) in coordinates
+        index = findall(x -> x == (jj, ii), coordinates)
         @assert(length(index) == 1)
         network = vcat(network, [mpo.data[index[1]]])
         network = vcat(network, [peps_prime_ham.data[jj, ii]])
@@ -160,19 +161,26 @@ Parameters
 peps: a peps network with datatype PEPS
 peps_prime: prime of peps used for inner products
 peps_prime_ham: prime of peps used for calculating expectation values
-Hlocal: An array of MPO operators with datatype LocalMPO
+Hs: An array of MPO operators with datatype LocalMPO
 Returns
 -------
 An array of networks.
 """
 function generate_inner_network(
-  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hlocal::Array
+  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::Array
 )
   network_list = Vector{Vector{ITensor}}()
-  for H_term in Hlocal
-    inner = inner_network(
-      peps, peps_prime, peps_prime_ham, H_term.mpo, [H_term.coord1, H_term.coord2]
-    )
+  for H_term in Hs
+    if H_term isa Models.LocalMPO
+      coords = [H_term.coord1, H_term.coord2]
+    elseif H_term isa Models.LineMPO
+      if H_term.coord[1] isa Colon
+        coords = [(i, H_term.coord[2]) for i in 1:length(H_term.mpo)]
+      else
+        coords = [(H_term.coord[1], i) for i in 1:length(H_term.mpo)]
+      end
+    end
+    inner = inner_network(peps, peps_prime, peps_prime_ham, H_term.mpo, coords)
     network_list = vcat(network_list, [inner])
   end
   inner = inner_network(peps, peps_prime)
@@ -185,9 +193,9 @@ function generate_inner_network(
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
   projectors::Array{<:ITensor,1},
-  Hlocal::Array,
+  Hs::Array,
 )
-  network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hlocal)
+  network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hs)
   return map(network -> vcat(network, projectors), network_list)
 end
 

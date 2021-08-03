@@ -51,7 +51,6 @@ function neighbor(
   )
 end
 
-#function isboundary(site::dir::Int,
 # Check if the edge connecting to the specified neighbor of the site
 # crosses the boundary of the lattice
 function isboundary(
@@ -61,14 +60,31 @@ function isboundary(
 end
 
 # The neighboring sites of the specified site
-function neighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}) where {N}
+function filterneighbors(
+  f, lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false
+) where {N}
   lattice_size = size(lattice)
   site_neighbors = Vector{NTuple{N,Int}}()
   for dim in 1:N, dir in (-1, 1)
     site_neighbor = neighbor(site, dim, dir; lattice_size=lattice_size)
-    push!(site_neighbors, neighbor)
+    bc_condition = periodic || !(isboundary(site, dim, dir; lattice_size=lattice_size))
+    if f(site, site_neighbor) && bc_condition
+      push!(site_neighbors, site_neighbor)
+    end
   end
   return site_neighbors
+end
+
+function neighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false) where {N}
+  return filterneighbors(≠, lattice, site; periodic=periodic)
+end
+
+function inneighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false) where {N}
+  return filterneighbors(>, lattice, site; periodic=periodic)
+end
+
+function outneighbors(lattice::HyperCubic{N}, site::NTuple{N,Int}; periodic=false) where {N}
+  return filterneighbors(<, lattice, site; periodic=periodic)
 end
 
 # All of the edges connected to the vertex `site`
@@ -90,6 +106,20 @@ function incident_edges(lattice::HyperCubic{N}, site::NTuple{N,Int}) where {N}
   return site_edges
 end
 
-function bonds(lattice::HyperCubic)
-  return ((s, n) for s in sites(lattice) for n in outneighbors(lattice, s))
+function bonds(lattice::HyperCubic; periodic=false)
+  return [
+    (s, n) for s in sites(lattice) for n in outneighbors(lattice, s; periodic=periodic)
+  ]
+end
+
+function bonds(lattice::Square, coord::Tuple{Colon,<:Integer})
+  rowsize = lattice.dims[1]
+  colsites = [(i, coord[2]) for i in 1:(rowsize - 1)]
+  return [(s, (s[1] + 1, s[2])) for s in colsites]
+end
+
+function bonds(lattice::Square, coord::Tuple{<:Integer,Colon})
+  colsize = lattice.dims[2]
+  rowsites = [(coord[1], i) for i in 1:(colsize - 1)]
+  return [(s, (s[1], s[2] + 1)) for s in rowsites]
 end

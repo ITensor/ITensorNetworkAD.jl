@@ -10,23 +10,46 @@ using ITensorNetworkAD.ITensorNetworks:
 using ITensorNetworkAD.Optimizations: gradient_descent
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
-@testset "test monotonic loss decrease of optimization" begin
+@testset "test the loss of optimization" begin
   Nx, Ny = 2, 3
   num_sweeps = 20
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=10)
   randn!(peps)
-  H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
-  losses_gd = gradient_descent(peps, H_local; stepsize=0.005, num_sweeps=num_sweeps)
-  losses_ls = optimize(peps, H_local; num_sweeps=num_sweeps, method="GD")
-  losses_lbfgs = optimize(peps, H_local; num_sweeps=num_sweeps, method="LBFGS")
-  losses_cg = optimize(peps, H_local; num_sweeps=num_sweeps, method="CG")
+  psi0 = randomMPS(vec(sites); linkdims=10)
+  sweeps = Sweeps(10)
+  maxdim!(sweeps, 10)
+
+  H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
+  energy, _ = dmrg(H, psi0, sweeps)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  losses_gd = gradient_descent(peps, H_line; stepsize=0.005, num_sweeps=num_sweeps)
+  losses_ls = optimize(peps, H_line; num_sweeps=num_sweeps, method="GD")
+  losses_lbfgs = optimize(peps, H_line; num_sweeps=num_sweeps, method="LBFGS")
+  losses_cg = optimize(peps, H_line; num_sweeps=num_sweeps, method="CG")
   for i in 3:(length(losses_gd) - 1)
     @test losses_gd[i] >= losses_gd[i + 1]
     @test losses_ls[i] >= losses_ls[i + 1]
     @test losses_lbfgs[i] >= losses_lbfgs[i + 1]
     @test losses_cg[i] >= losses_cg[i + 1]
   end
+  @test abs(energy - losses_gd[end]) < 0.2
+  @test abs(energy - losses_ls[end]) < 0.2
+  @test abs(energy - losses_lbfgs[end]) < 0.2
+  @test abs(energy - losses_cg[end]) < 0.2
+end
+
+@testset "test the equivalence of local and line hamiltonian" begin
+  Nx, Ny = 2, 3
+  num_sweeps = 3
+  sites = siteinds("S=1/2", Ny, Nx)
+  peps = PEPS(sites; linkdims=10)
+  randn!(peps)
+  H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  losses_line = gradient_descent(peps, H_line; stepsize=0.005, num_sweeps=num_sweeps)
+  losses_local = gradient_descent(peps, H_local; stepsize=0.005, num_sweeps=num_sweeps)
+  @test isapprox(losses_local, losses_line)
 end
 
 @testset "test monotonic loss decrease of optimization with inserting projectors" begin
@@ -37,10 +60,10 @@ end
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)
   randn!(peps)
-  H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
   losses_gd = gradient_descent(
     peps,
-    H_local,
+    H_line,
     insert_projectors;
     stepsize=0.005,
     num_sweeps=num_sweeps,
@@ -49,7 +72,7 @@ end
   )
   losses_ls = optimize(
     peps,
-    H_local,
+    H_line,
     insert_projectors;
     num_sweeps=num_sweeps,
     method="GD",
@@ -58,7 +81,7 @@ end
   )
   losses_lbfgs = optimize(
     peps,
-    H_local,
+    H_line,
     insert_projectors;
     num_sweeps=num_sweeps,
     method="LBFGS",
@@ -67,7 +90,7 @@ end
   )
   losses_cg = optimize(
     peps,
-    H_local,
+    H_line,
     insert_projectors;
     num_sweeps=num_sweeps,
     method="CG",

@@ -8,5 +8,7 @@ using ITensorNetworkAD.ITensorNetworks: Models
   sites = siteinds("S=1/2", Ny, Nx)
   H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
   H_local = Models.localham(Models.Model("tfim"), sites; h=1.0)
-  @test Models.checklocalham(H_local, H, sites)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  @test Models.checkham(H_local, H, sites)
+  @test Models.checkham(H_line, H, sites)
 end
