@@ -106,7 +106,7 @@ end
 
 ITensors.data(P::PEPS) = P.data
 
-split_network(P::PEPS) = PEPS(split_network(data(P)))
+split_network(P::PEPS, rotation=false) = PEPS(split_network(data(P); rotation=rotation))
 
 function ITensors.commoninds(p1::PEPS, p2::PEPS)
   return mapreduce(a -> commoninds(a...), vcat, zip(p1.data, p2.data))
@@ -145,7 +145,36 @@ function flatten(v::Array{<:PEPS})
   return vcat(tensor_list...)
 end
 
-function insert_projectors(peps::PEPS, center, cutoff=1e-15, maxdim=100)
+function insert_projectors(peps::PEPS, cutoff=1e-15, maxdim=100)
+  psi_bra = addtags(linkinds, dag.(peps.data), "bra")
+  psi_ket = addtags(linkinds, peps.data, "ket")
+  tn = psi_bra .* psi_ket
+  bmps = boundary_mps(tn; cutoff=cutoff, maxdim=maxdim)
+  psi_bra_rot = addtags(linkinds, dag.(peps.data), "brarot")
+  psi_ket_rot = addtags(linkinds, peps.data, "ketrot")
+  tn_rot = psi_bra_rot .* psi_ket_rot
+  bmps = boundary_mps(tn; cutoff=cutoff, maxdim=maxdim)
+  bmps_rot = boundary_mps(tn_rot; cutoff=cutoff, maxdim=maxdim)
+  # get the projector for each center
+  Ny, Nx = size(peps.data)
+  bonds_row = [(i, :) for i in 1:Ny]
+  bonds_column = [(:, i) for i in 1:Nx]
+  tn_split_row, tn_split_column = [], []
+  projectors_row, projectors_column = Vector{Vector{ITensor}}(), Vector{Vector{ITensor}}()
+  for bond in bonds_row
+    tn_split, pl, pr = insert_projectors(tn, bmps; center=bond)
+    push!(tn_split_row, tn_split)
+    push!(projectors_row, vcat(reduce(vcat, pl), reduce(vcat, pr)))
+  end
+  for bond in bonds_column
+    tn_split, pl, pr = insert_projectors(tn_rot, bmps_rot; center=bond)
+    push!(tn_split_column, tn_split)
+    push!(projectors_column, vcat(reduce(vcat, pl), reduce(vcat, pr)))
+  end
+  return tn_split_row, tn_split_column, projectors_row, projectors_column
+end
+
+function insert_projectors(peps::PEPS, center::Tuple, cutoff=1e-15, maxdim=100)
   # Square the tensor network
   psi_bra = addtags(linkinds, dag.(peps.data), "bra")
   psi_ket = addtags(linkinds, peps.data, "ket")
@@ -192,11 +221,25 @@ function generate_inner_network(
   peps::PEPS,
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
-  projectors::Array{<:ITensor,1},
+  projectors::Vector{<:ITensor},
   Hs::Array,
 )
   network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hs)
   return map(network -> vcat(network, projectors), network_list)
+end
+
+function generate_inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Vector{Vector{ITensor}},
+  Hs::Vector{Models.LineMPO},
+)
+  @assert length(projectors) == length(Hs)
+  function generate_each_network(projector, H)
+    return generate_inner_network(peps, peps_prime, peps_prime_ham, projector, [H])[1]
+  end
+  return [generate_each_network(projector, H) for (projector, H) in zip(projectors, Hs)]
 end
 
 function rayleigh_quotient(inners::Array)

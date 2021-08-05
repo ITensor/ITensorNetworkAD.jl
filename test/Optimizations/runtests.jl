@@ -39,6 +39,33 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
   @test abs(energy - losses_cg[end]) < 0.2
 end
 
+@testset "test the loss of optimization" begin
+  Nx, Ny = 3, 3
+  num_sweeps = 20
+  cutoff = 1e-15
+  maxdim = 100
+  sites = siteinds("S=1/2", Ny, Nx)
+  peps = PEPS(sites; linkdims=2)
+  randn!(peps)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  H_row = [H for H in H_line if H.coord[2] isa Colon]
+  H_column = [H for H in H_line if H.coord[1] isa Colon]
+
+  losses_gd = gradient_descent(
+    peps,
+    H_row,
+    H_column,
+    insert_projectors;
+    stepsize=0.005,
+    num_sweeps=num_sweeps,
+    cutoff=cutoff,
+    maxdim=maxdim,
+  )
+  for i in 3:(length(losses_gd) - 1)
+    @test losses_gd[i] >= losses_gd[i + 1]
+  end
+end
+
 @testset "test the equivalence of local and line hamiltonian" begin
   Nx, Ny = 2, 3
   num_sweeps = 3
