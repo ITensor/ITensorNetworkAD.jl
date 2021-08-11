@@ -1,12 +1,6 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
-  PEPS,
-  inner_network,
-  Models,
-  flatten,
-  insert_projectors,
-  split_network,
-  generate_inner_network
+  PEPS, inner_network, Models, flatten, insert_projectors, split_network
 using ITensorNetworkAD.Optimizations: gradient_descent
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
@@ -137,7 +131,7 @@ end
   function loss(peps::PEPS)
     peps_prime = prime(linkinds, peps)
     peps_prime_ham = prime(peps)
-    network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, [])
+    network_list = [inner_network(peps, peps_prime)]
     variables = flatten([peps, peps_prime])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]
@@ -161,9 +155,7 @@ end
     peps_ket = addtags(linkinds, peps, "ket")
     peps_bra_split = split_network(peps_bra)
     peps_ket_split = split_network(peps_ket)
-    network_list = generate_inner_network(
-      peps_bra_split, peps_ket_split, peps_ket_split, projectors, []
-    )
+    network_list = [inner_network(peps_bra_split, peps_ket_split, projectors)]
     variables = flatten([peps_bra_split, peps_ket_split])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]
@@ -184,9 +176,8 @@ end
     peps_bra = addtags(linkinds, peps, "bra")
     peps_ket = addtags(linkinds, peps, "ket")
     sites = commoninds(peps_bra, peps_ket)
-    peps_ket_ham = prime(sites, peps_ket)
     projectors = [ITensor(1.0)]
-    network_list = generate_inner_network(peps_bra, peps_ket, peps_ket_ham, projectors, [])
+    network_list = [inner_network(peps_bra, peps_ket, projectors)]
     variables = flatten([peps_bra, peps_ket])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]

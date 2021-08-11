@@ -79,12 +79,18 @@ function ChainRulesCore.rrule(::typeof(flatten), v::Array{<:PEPS})
   return flatten(v), adjoint_pullback
 end
 
+@non_differentiable inner_network(peps::PEPS, peps_prime::PEPS)
+
+@non_differentiable inner_network(
+  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}
+)
+
 # gradient of this function returns nothing.
-@non_differentiable generate_inner_network(
+@non_differentiable inner_networks(
   peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::Array
 )
 
-@non_differentiable generate_inner_network(
+@non_differentiable inner_networks(
   peps::PEPS,
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
@@ -92,7 +98,7 @@ end
   Hs::Array,
 )
 
-@non_differentiable generate_inner_network(
+@non_differentiable inner_networks(
   peps::PEPS,
   peps_prime::PEPS,
   peps_prime_ham::PEPS,

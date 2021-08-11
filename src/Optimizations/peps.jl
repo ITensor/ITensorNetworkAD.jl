@@ -4,7 +4,8 @@ using ..ITensorNetworks
 using ..ITensorAutoHOOT: batch_tensor_contraction
 using ..ITensorNetworks:
   PEPS,
-  generate_inner_network,
+  inner_network,
+  inner_networks,
   flatten,
   insert_projectors,
   split_network,
@@ -16,7 +17,9 @@ function loss_grad_wrap(peps::PEPS, Hs::Array)
   function loss(peps::PEPS)
     peps_prime = prime(linkinds, peps)
     peps_prime_ham = prime(peps)
-    network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hs)
+    network_H = inner_networks(peps, peps_prime, peps_prime_ham, Hs)
+    network_inner = inner_network(peps, peps_prime)
+    network_list = vcat(network_H, [network_inner])
     variables = flatten([peps, peps_prime, peps_prime_ham])
     inners = batch_tensor_contraction(network_list, variables...)
     return rayleigh_quotient(inners)
@@ -40,9 +43,11 @@ function loss_grad_wrap(
     peps_ket_split = split_network(peps_ket)
     peps_ket_split_ham = prime(sites, peps_ket_split)
     # generate network
-    network_list = generate_inner_network(
+    network_H = inner_networks(
       peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors, Hs
     )
+    network_inner = inner_network(peps_bra_split, peps_ket_split, projectors)
+    network_list = vcat(network_H, [network_inner])
     variables = flatten([peps_bra_split, peps_ket_split, peps_ket_split_ham])
     if init_call == true
       cache = NetworkCache(network_list)
@@ -82,20 +87,18 @@ function loss_grad_wrap(
     peps_ket_split_rot = split_network(peps_ket_rot, true)
     peps_ket_split_rot_ham = prime(sites, peps_ket_split_rot)
     # generate network
-    network_list_row = generate_inner_network(
+    network_list_row = inner_networks(
       peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row, Hs_row
     )
-    network_list_column = generate_inner_network(
+    network_list_column = inner_networks(
       peps_bra_split_rot,
       peps_ket_split_rot,
       peps_ket_split_rot_ham,
       projectors_column,
       Hs_column,
     )
-    network_inner = generate_inner_network(
-      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row[1], []
-    )
-    network_list = vcat(network_list_row, network_list_column, network_inner)
+    network_inner = inner_network(peps_bra_split, peps_ket_split, projectors_row[1])
+    network_list = vcat(network_list_row, network_list_column, [network_inner])
     variables = flatten([
       peps_bra_split,
       peps_ket_split,

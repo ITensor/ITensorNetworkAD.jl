@@ -117,6 +117,11 @@ function inner_network(peps::PEPS, peps_prime::PEPS)
   return vcat(vcat(peps.data...), vcat(peps_prime.data...))
 end
 
+function inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor})
+  network = inner_network(peps::PEPS, peps_prime::PEPS)
+  return vcat(network, projectors)
+end
+
 # Get the tensor network of <peps|mpo|peps'>
 # The local MPO specifies the 2-site term of the Hamiltonian
 function inner_network(
@@ -195,9 +200,7 @@ Returns
 -------
 An array of networks.
 """
-function generate_inner_network(
-  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::Array
-)
+function inner_networks(peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::Array)
   network_list = Vector{Vector{ITensor}}()
   for H_term in Hs
     if H_term isa Models.LocalMPO
@@ -212,23 +215,21 @@ function generate_inner_network(
     inner = inner_network(peps, peps_prime, peps_prime_ham, H_term.mpo, coords)
     network_list = vcat(network_list, [inner])
   end
-  inner = inner_network(peps, peps_prime)
-  network_list = vcat(network_list, [inner])
   return network_list
 end
 
-function generate_inner_network(
+function inner_networks(
   peps::PEPS,
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
   projectors::Vector{<:ITensor},
   Hs::Array,
 )
-  network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, Hs)
+  network_list = inner_networks(peps, peps_prime, peps_prime_ham, Hs)
   return map(network -> vcat(network, projectors), network_list)
 end
 
-function generate_inner_network(
+function inner_networks(
   peps::PEPS,
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
@@ -237,7 +238,7 @@ function generate_inner_network(
 )
   @assert length(projectors) == length(Hs)
   function generate_each_network(projector, H)
-    return generate_inner_network(peps, peps_prime, peps_prime_ham, projector, [H])[1]
+    return inner_networks(peps, peps_prime, peps_prime_ham, projector, [H])[1]
   end
   return [generate_each_network(projector, H) for (projector, H) in zip(projectors, Hs)]
 end

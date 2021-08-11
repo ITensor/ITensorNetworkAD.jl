@@ -9,7 +9,7 @@ using ITensorNetworkAD.ITensorNetworks:
   broadcast_inner,
   insert_projectors,
   split_network,
-  generate_inner_network
+  inner_networks
 using ITensorNetworkAD.ITensorAutoHOOT: generate_optimal_tree, batch_tensor_contraction
 
 @testset "test peps" begin
@@ -128,14 +128,14 @@ end
   peps_ket_split_rot_ham = prime(sites, peps_ket_split_rot)
 
   for i in 1:length(projectors_row)
-    network_list = generate_inner_network(
+    network_list = inner_networks(
       peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row[i], [H_row[i]]
     )
     inners = batch_tensor_contraction(network_list)
     @test size(inners[1]) == ()
   end
   for i in 1:length(projectors_column)
-    network_list = generate_inner_network(
+    network_list = inner_networks(
       peps_bra_split_rot,
       peps_ket_split_rot,
       peps_ket_split_rot_ham,
