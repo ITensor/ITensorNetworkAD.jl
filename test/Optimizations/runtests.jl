@@ -48,13 +48,9 @@ end
   peps = PEPS(sites; linkdims=2)
   randn!(peps)
   H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
-  H_row = [H for H in H_line if H.coord[2] isa Colon]
-  H_column = [H for H in H_line if H.coord[1] isa Colon]
-
   losses_gd = gradient_descent(
     peps,
-    H_row,
-    H_column,
+    H_line,
     insert_projectors;
     stepsize=0.005,
     num_sweeps=num_sweeps,

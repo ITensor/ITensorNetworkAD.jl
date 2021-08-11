@@ -57,12 +57,13 @@ end
 
 function loss_grad_wrap(
   peps::PEPS,
-  Hs_row::Array{Models.LineMPO},
-  Hs_column::Array{Models.LineMPO},
+  Hs::Array{Models.LineMPO},
   ::typeof(insert_projectors);
   cutoff=1e-15,
   maxdim=100,
 )
+  Hs_row = [H for H in Hs if H.coord[2] isa Colon]
+  Hs_column = [H for H in Hs if H.coord[1] isa Colon]
   init_call = true
   cache = NetworkCache()
   function loss(peps::PEPS)
@@ -155,20 +156,24 @@ function gradient_descent(
   return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
 end
 
-function gradient_descent(
-  peps::PEPS,
-  Hs_row::Array{Models.LineMPO},
-  Hs_column::Array{Models.LineMPO},
-  ::typeof(insert_projectors);
+function gd_error_tracker(
+  loss_w_grad,
+  loss_w_grad_approx;
   stepsize::Float64,
   num_sweeps::Int,
   cutoff=1e-15,
   maxdim=100,
 )
-  loss_w_grad = loss_grad_wrap(
-    peps, Hs_row, Hs_column, insert_projectors; cutoff=cutoff, maxdim=maxdim
-  )
-  return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
+  for iter in 1:num_sweeps
+    l, g = loss_w_grad(peps)
+    l_approx, g_approx = loss_w_grad_approx(peps)
+    g_diff = broadcast_minus(g, g_approx)
+    g_diff_nrm = broadcast_inner(g_diff, g_diff)
+    print("The gradient difference norm at iteraton $iter is $g_diff_nrm\n")
+    print("The rayleigh quotient at iteraton $iter is $l\n")
+    print("The approximate rayleigh quotient at iteraton $iter is $l_approx\n")
+    peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
+  end
 end
 
 function gd_error_tracker(
@@ -178,41 +183,38 @@ function gd_error_tracker(
   loss_w_grad_approx = loss_grad_wrap(
     peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim
   )
-  for iter in 1:num_sweeps
-    l, g = loss_w_grad(peps)
-    l_approx, g_approx = loss_w_grad_approx(peps)
-    g_diff = broadcast_minus(g, g_approx)
-    g_diff_nrm = broadcast_inner(g_diff, g_diff)
-    print("The gradient difference norm at iteraton $iter is $g_diff_nrm\n")
-    print("The rayleigh quotient at iteraton $iter is $l\n")
-    print("The approximate rayleigh quotient at iteraton $iter is $l_approx\n")
-    peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
-  end
+  return gd_error_tracker(
+    loss_w_grad,
+    loss_w_grad_approx;
+    stepsize=stepsize,
+    num_sweeps=num_sweeps,
+    cutoff=cutoff,
+    maxdim=maxdim,
+  )
 end
 
 function gd_error_tracker(
   peps::PEPS,
-  Hs_row::Array{Models.LineMPO},
-  Hs_column::Array{Models.LineMPO};
+  Hs::Array{Models.LineMPO},
   stepsize::Float64,
   num_sweeps::Int,
   cutoff=1e-15,
   maxdim=100,
 )
+  Hs_row = [H for H in Hs if H.coord[2] isa Colon]
+  Hs_column = [H for H in Hs if H.coord[1] isa Colon]
   loss_w_grad = loss_grad_wrap(peps, vcat(Hs_row, Hs_column))
   loss_w_grad_approx = loss_grad_wrap(
     peps, Hs_row, Hs_column, insert_projectors; cutoff=cutoff, maxdim=maxdim
   )
-  for iter in 1:num_sweeps
-    l, g = loss_w_grad(peps)
-    l_approx, g_approx = loss_w_grad_approx(peps)
-    g_diff = broadcast_minus(g, g_approx)
-    g_diff_nrm = broadcast_inner(g_diff, g_diff)
-    print("The gradient difference norm at iteraton $iter is $g_diff_nrm\n")
-    print("The rayleigh quotient at iteraton $iter is $l\n")
-    print("The approximate rayleigh quotient at iteraton $iter is $l_approx\n")
-    peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
-  end
+  return gd_error_tracker(
+    loss_w_grad,
+    loss_w_grad_approx;
+    stepsize=stepsize,
+    num_sweeps=num_sweeps,
+    cutoff=cutoff,
+    maxdim=maxdim,
+  )
 end
 
 function OptimKit.optimize(peps::PEPS, loss_w_grad; num_sweeps::Int, method="GD")
