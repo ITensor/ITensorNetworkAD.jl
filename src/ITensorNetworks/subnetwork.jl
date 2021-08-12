@@ -19,3 +19,9 @@ ITensors.inds(node::SubNetwork) = noncommoninds(get_leaves(node)...)
 function ITensors.noncommoninds(nodes::Union{ITensor,SubNetwork}...)
   return symdiff(map(inds, nodes)...)
 end
+
+function neighboring_tensors(subnetwork::SubNetwork, tensor_list::Vector{ITensor})
+  subnet_inds = ITensors.inds(subnetwork)
+  is_neighbor(t) = length(intersect(subnet_inds, inds(t))) > 0
+  return [t for t in tensor_list if is_neighbor(t)]
+end

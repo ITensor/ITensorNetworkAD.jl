@@ -112,6 +112,43 @@ function ITensors.commoninds(p1::PEPS, p2::PEPS)
   return mapreduce(a -> commoninds(a...), vcat, zip(p1.data, p2.data))
 end
 
+function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITensor})
+  uncontract_inds = inds(SubNetwork(vcat(sub_peps_bra, sub_peps_ket, projectors)))
+
+  is_neighbor(t) = length(intersect(uncontract_inds, inds(t))) > 0
+  center_index = [i for (i, t) in enumerate(sub_peps_bra) if is_neighbor(t)]
+  @assert length(center_index) == 1
+  center_index = center_index[1]
+  @assert is_neighbor(sub_peps_ket[center_index])
+
+  front_tree = nothing
+  for i in 1:(center_index - 1)
+    site_tensors = [sub_peps_bra[i], sub_peps_ket[i]]
+    connect_projectors = neighboring_tensors(SubNetwork(site_tensors), projectors)
+    if front_tree == nothing
+      inputs = vcat(site_tensors, connect_projectors)
+    else
+      inputs = vcat(site_tensors, connect_projectors, [front_tree])
+    end
+    front_tree = SubNetwork(inputs)
+  end
+
+  back_tree = nothing
+  for i in length(sub_peps_bra):-1:(center_index + 1)
+    site_tensors = [sub_peps_bra[i], sub_peps_ket[i]]
+    connect_projectors = neighboring_tensors(SubNetwork(site_tensors), projectors)
+    if back_tree == nothing
+      inputs = vcat(site_tensors, connect_projectors)
+    else
+      inputs = vcat(site_tensors, connect_projectors, [back_tree])
+    end
+    back_tree = SubNetwork(inputs)
+  end
+  return SubNetwork([
+    sub_peps_bra[center_index], sub_peps_ket[center_index], front_tree, back_tree
+  ])
+end
+
 # Get the tensor network of <peps|peps'>
 function inner_network(peps::PEPS, peps_prime::PEPS)
   return vcat(vcat(peps.data...), vcat(peps_prime.data...))
@@ -121,6 +158,22 @@ function inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITenso
   network = inner_network(peps::PEPS, peps_prime::PEPS)
   return vcat(network, projectors)
 end
+
+function inner_network(
+  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}, ::typeof(tree)
+)
+  Ny, Nx = size(peps.data)
+  function get_tree(i)
+    row(i) = vcat(peps.data[i, :], peps_prime.data[i, :])
+    neighbor_projectors = neighboring_tensors(SubNetwork(row(i)), projectors)
+    return tree(peps.data[i, :], peps_prime.data[i, :], neighbor_projectors)
+  end
+  subnetworks = [get_tree(i) for i in 1:Ny]
+  return SubNetwork(subnetworks)
+end
+
+# function inner_network(peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, mpo::MPO, coordinate::Tuple{<:Integer,Colon})
+# end
 
 # Get the tensor network of <peps|mpo|peps'>
 # The local MPO specifies the 2-site term of the Hamiltonian
@@ -189,7 +242,7 @@ function insert_projectors(peps::PEPS, center::Tuple, cutoff=1e-15, maxdim=100)
   return tn_split, vcat(reduce(vcat, pl), reduce(vcat, pr))
 end
 
-"""Generate an array of networks representing inner products, <p|H_1|p>, ..., <p|H_n|p>, <p|p>
+"""Generate an array of networks representing inner products, <p|H_1|p>, ..., <p|H_n|p>
 Parameters
 ----------
 peps: a peps network with datatype PEPS

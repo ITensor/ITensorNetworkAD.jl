@@ -37,6 +37,7 @@ end
 
 function Executor(trees::Vector{SubNetwork})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
+  print(nodes)
   net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
