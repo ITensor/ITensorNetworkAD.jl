@@ -112,6 +112,31 @@ function ITensors.commoninds(p1::PEPS, p2::PEPS)
   return mapreduce(a -> commoninds(a...), vcat, zip(p1.data, p2.data))
 end
 
+function tree(len, center_index, site_tensors, projectors::Vector{ITensor})
+  front_tree = nothing
+  for i in 1:(center_index - 1)
+    connect_projectors = neighboring_tensors(SubNetwork(site_tensors(i)), projectors)
+    if front_tree == nothing
+      inputs = vcat(site_tensors(i), connect_projectors)
+    else
+      inputs = vcat(site_tensors(i), connect_projectors, [front_tree])
+    end
+    front_tree = SubNetwork(inputs)
+  end
+
+  back_tree = nothing
+  for i in len:-1:(center_index + 1)
+    connect_projectors = neighboring_tensors(SubNetwork(site_tensors(i)), projectors)
+    if back_tree == nothing
+      inputs = vcat(site_tensors(i), connect_projectors)
+    else
+      inputs = vcat(site_tensors(i), connect_projectors, [back_tree])
+    end
+    back_tree = SubNetwork(inputs)
+  end
+  return front_tree, back_tree
+end
+
 function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITensor})
   uncontract_inds = inds(SubNetwork(vcat(sub_peps_bra, sub_peps_ket, projectors)))
 
@@ -120,32 +145,35 @@ function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITe
   @assert length(center_index) == 1
   center_index = center_index[1]
   @assert is_neighbor(sub_peps_ket[center_index])
-
-  front_tree = nothing
-  for i in 1:(center_index - 1)
-    site_tensors = [sub_peps_bra[i], sub_peps_ket[i]]
-    connect_projectors = neighboring_tensors(SubNetwork(site_tensors), projectors)
-    if front_tree == nothing
-      inputs = vcat(site_tensors, connect_projectors)
-    else
-      inputs = vcat(site_tensors, connect_projectors, [front_tree])
-    end
-    front_tree = SubNetwork(inputs)
-  end
-
-  back_tree = nothing
-  for i in length(sub_peps_bra):-1:(center_index + 1)
-    site_tensors = [sub_peps_bra[i], sub_peps_ket[i]]
-    connect_projectors = neighboring_tensors(SubNetwork(site_tensors), projectors)
-    if back_tree == nothing
-      inputs = vcat(site_tensors, connect_projectors)
-    else
-      inputs = vcat(site_tensors, connect_projectors, [back_tree])
-    end
-    back_tree = SubNetwork(inputs)
-  end
+  site_tensors(i) = [sub_peps_bra[i], sub_peps_ket[i]]
+  front_tree, back_tree = tree(
+    length(sub_peps_bra), center_index, site_tensors, projectors::Vector{ITensor}
+  )
   return SubNetwork([
     sub_peps_bra[center_index], sub_peps_ket[center_index], front_tree, back_tree
+  ])
+end
+
+function tree(
+  sub_peps_bra::Vector, sub_peps_ket::Vector, mpo::Vector, projectors::Vector{ITensor}
+)
+  uncontract_inds = inds(SubNetwork(vcat(sub_peps_bra, sub_peps_ket, mpo, projectors)))
+
+  is_neighbor(t) = length(intersect(uncontract_inds, inds(t))) > 0
+  center_index = [i for (i, t) in enumerate(sub_peps_bra) if is_neighbor(t)]
+  @assert length(center_index) == 1
+  center_index = center_index[1]
+  @assert is_neighbor(sub_peps_ket[center_index])
+  site_tensors(i) = [sub_peps_bra[i], sub_peps_ket[i], mpo[i]]
+  front_tree, back_tree = tree(
+    length(sub_peps_bra), center_index, site_tensors, projectors::Vector{ITensor}
+  )
+  return SubNetwork([
+    sub_peps_bra[center_index],
+    sub_peps_ket[center_index],
+    mpo[center_index],
+    front_tree,
+    back_tree,
   ])
 end
 
@@ -172,8 +200,55 @@ function inner_network(
   return SubNetwork(subnetworks)
 end
 
-# function inner_network(peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, mpo::MPO, coordinate::Tuple{<:Integer,Colon})
-# end
+function inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Vector{<:ITensor},
+  mpo::MPO,
+  coordinate::Tuple{<:Integer,Colon},
+  ::typeof(tree),
+)
+  Ny, Nx = size(peps.data)
+  function get_tree(i)
+    if i == coordinate[1]
+      center_row(i) = vcat(peps.data[i, :], peps_prime_ham.data[i, :], mpo.data)
+      neighbor_projectors = neighboring_tensors(SubNetwork(center_row(i)), projectors)
+      return tree(peps.data[i, :], peps_prime_ham.data[i, :], mpo.data, neighbor_projectors)
+    else
+      row(i) = vcat(peps.data[i, :], peps_prime.data[i, :])
+      neighbor_projectors = neighboring_tensors(SubNetwork(row(i)), projectors)
+      return tree(peps.data[i, :], peps_prime.data[i, :], neighbor_projectors)
+    end
+  end
+  subnetworks = [get_tree(i) for i in 1:Ny]
+  return SubNetwork(subnetworks)
+end
+
+function inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Vector{<:ITensor},
+  mpo::MPO,
+  coordinate::Tuple{Colon,<:Integer},
+  ::typeof(tree),
+)
+  Ny, Nx = size(peps.data)
+  function get_tree(i)
+    if i == coordinate[2]
+      center_row(i) = vcat(peps.data[:, i], peps_prime_ham.data[:, i], mpo.data)
+      neighbor_projectors = neighboring_tensors(SubNetwork(center_row(i)), projectors)
+      return tree(peps.data[:, i], peps_prime_ham.data[:, i], mpo.data, neighbor_projectors)
+    else
+      row(i) = vcat(peps.data[:, i], peps_prime.data[:, i])
+      neighbor_projectors = neighboring_tensors(SubNetwork(row(i)), projectors)
+      return tree(peps.data[:, i], peps_prime.data[:, i], neighbor_projectors)
+    end
+  end
+  subnetworks = [get_tree(i) for i in 1:Nx]
+  return SubNetwork(subnetworks)
+end
 
 # Get the tensor network of <peps|mpo|peps'>
 # The local MPO specifies the 2-site term of the Hamiltonian
@@ -292,6 +367,21 @@ function inner_networks(
   @assert length(projectors) == length(Hs)
   function generate_each_network(projector, H)
     return inner_networks(peps, peps_prime, peps_prime_ham, projector, [H])[1]
+  end
+  return [generate_each_network(projector, H) for (projector, H) in zip(projectors, Hs)]
+end
+
+function inner_networks(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  projectors::Vector{Vector{ITensor}},
+  Hs::Vector{Models.LineMPO},
+  ::typeof(tree),
+)
+  @assert length(projectors) == length(Hs)
+  function generate_each_network(projector, H)
+    return inner_network(peps, peps_prime, peps_prime_ham, projector, H.mpo, H.coord, tree)
   end
   return [generate_each_network(projector, H) for (projector, H) in zip(projectors, Hs)]
 end
