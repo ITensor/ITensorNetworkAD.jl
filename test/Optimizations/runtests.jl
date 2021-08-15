@@ -1,7 +1,7 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
   PEPS, inner_network, Models, flatten, insert_projectors, split_network
-using ITensorNetworkAD.Optimizations: gradient_descent
+using ITensorNetworkAD.Optimizations: gradient_descent, backtracking_linesearch
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
 @testset "test the loss of optimization" begin
@@ -27,10 +27,10 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
     @test losses_lbfgs[i] >= losses_lbfgs[i + 1]
     @test losses_cg[i] >= losses_cg[i + 1]
   end
-  @test abs(energy - losses_gd[end]) < 0.2
-  @test abs(energy - losses_ls[end]) < 0.2
-  @test abs(energy - losses_lbfgs[end]) < 0.2
-  @test abs(energy - losses_cg[end]) < 0.2
+  @test abs(energy - losses_gd[end]) < 0.5
+  @test abs(energy - losses_ls[end]) < 0.5
+  @test abs(energy - losses_lbfgs[end]) < 0.5
+  @test abs(energy - losses_cg[end]) < 0.5
 end
 
 @testset "test the loss of optimization" begin
@@ -41,19 +41,30 @@ end
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)
   randn!(peps)
+
+  psi0 = randomMPS(vec(sites); linkdims=3)
+  sweeps = Sweeps(10)
+  maxdim!(sweeps, 10)
+
+  H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
+  energy, _ = dmrg(H, psi0, sweeps)
+  print(energy)
+
   H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
-  losses_gd = gradient_descent(
+  losses_gdls = gradient_descent(
     peps,
     H_line,
-    insert_projectors;
-    stepsize=0.005,
+    insert_projectors,
+    backtracking_linesearch;
+    beta=0.5,
     num_sweeps=num_sweeps,
     cutoff=cutoff,
     maxdim=maxdim,
   )
   for i in 3:(length(losses_gd) - 1)
-    @test losses_gd[i] >= losses_gd[i + 1]
+    @test losses_gdls[i] >= losses_gdls[i + 1]
   end
+  @test abs(energy - losses_gd[end]) < 0.5
 end
 
 @testset "test the equivalence of local and line hamiltonian" begin
