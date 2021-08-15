@@ -61,10 +61,10 @@ end
     cutoff=cutoff,
     maxdim=maxdim,
   )
-  for i in 3:(length(losses_gd) - 1)
+  for i in 3:(length(losses_gdls) - 1)
     @test losses_gdls[i] >= losses_gdls[i + 1]
   end
-  @test abs(energy - losses_gd[end]) < 0.5
+  @test abs(energy - losses_gdls[end]) < 0.5
 end
 
 @testset "test the equivalence of local and line hamiltonian" begin
