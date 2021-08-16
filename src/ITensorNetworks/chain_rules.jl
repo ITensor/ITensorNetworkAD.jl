@@ -10,7 +10,7 @@ function ChainRulesCore.rrule(
 )
   function pullback(dtn_split::Matrix{ITensor})
     dtn = map(t -> replaceprime(t, 1 => 0), dtn_split)
-    return (NoTangent(), dtn, NoTangent(), NoTangent())
+    return (NoTangent(), dtn)
   end
   return split_network(tn; projector_center=projector_center, rotation=rotation), pullback
 end
@@ -81,9 +81,7 @@ end
 
 @non_differentiable inner_network(peps::PEPS, peps_prime::PEPS)
 
-@non_differentiable inner_network(
-  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}
-)
+@non_differentiable inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{ITensor})
 
 @non_differentiable inner_network(
   peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}, ::typeof(tree)
@@ -95,11 +93,7 @@ end
 )
 
 @non_differentiable inner_networks(
-  peps::PEPS,
-  peps_prime::PEPS,
-  peps_prime_ham::PEPS,
-  projectors::Vector{<:ITensor},
-  Hs::Array,
+  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, projectors::Vector{ITensor}, Hs::Array
 )
 
 @non_differentiable inner_networks(
