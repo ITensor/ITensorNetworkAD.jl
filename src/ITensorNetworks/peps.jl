@@ -199,7 +199,7 @@ function inner_network(peps::PEPS, peps_prime::PEPS)
   return vcat(vcat(peps.data...), vcat(peps_prime.data...))
 end
 
-function inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor})
+function inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{ITensor})
   network = inner_network(peps::PEPS, peps_prime::PEPS)
   return vcat(network, projectors)
 end
@@ -364,11 +364,7 @@ function inner_networks(peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::
 end
 
 function inner_networks(
-  peps::PEPS,
-  peps_prime::PEPS,
-  peps_prime_ham::PEPS,
-  projectors::Vector{<:ITensor},
-  Hs::Array,
+  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, projectors::Vector{ITensor}, Hs::Array
 )
   network_list = inner_networks(peps, peps_prime, peps_prime_ham, Hs)
   return map(network -> vcat(network, projectors), network_list)
