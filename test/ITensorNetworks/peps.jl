@@ -9,8 +9,11 @@ using ITensorNetworkAD.ITensorNetworks:
   broadcast_inner,
   insert_projectors,
   split_network,
-  inner_networks
-using ITensorNetworkAD.ITensorAutoHOOT: generate_optimal_tree, batch_tensor_contraction
+  inner_networks,
+  tree,
+  get_leaves
+using ITensorNetworkAD.ITensorAutoHOOT:
+  generate_optimal_tree, batch_tensor_contraction, Executor
 
 @testset "test peps" begin
   Nx = 4
@@ -144,5 +147,67 @@ end
     )
     inners = batch_tensor_contraction(network_list)
     @test size(inners[1]) == ()
+  end
+end
+
+@testset "test converting peps based network into a tree" begin
+  # ITensors.set_warn_order(9)
+  Nx, Ny = 6, 5
+  sites = siteinds("S=1/2", Ny, Nx)
+  peps = PEPS(sites; linkdims=2)
+  randn!(peps)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  H_row = [H for H in H_line if H.coord[2] isa Colon]
+  H_column = [H for H in H_line if H.coord[1] isa Colon]
+  _, _, projectors_row, projectors_column = insert_projectors(peps)
+
+  peps_bra = addtags(linkinds, peps, "bra")
+  peps_ket = addtags(linkinds, peps, "ket")
+  peps_bra_rot = addtags(linkinds, peps, "brarot")
+  peps_ket_rot = addtags(linkinds, peps, "ketrot")
+  sites = commoninds(peps_bra, peps_ket)
+  peps_bra_split = split_network(peps_bra)
+  peps_ket_split = split_network(peps_ket)
+  peps_ket_split_ham = prime(sites, peps_ket_split)
+  peps_bra_split_rot = split_network(peps_bra_rot, true)
+  peps_ket_split_rot = split_network(peps_ket_rot, true)
+  peps_ket_split_rot_ham = prime(sites, peps_ket_split_rot)
+
+  projectors = projectors_row[1]
+  peps_tree = inner_network(peps_bra_split, peps_ket_split, projectors, tree)
+  leaves = get_leaves(peps_tree)
+  @test length(leaves) == 2 * Nx * Ny + length(projectors)
+  executor = Executor([peps_tree])
+  out = batch_tensor_contraction(executor)
+  @test size(out[1]) == ()
+  for i in 1:length(projectors_row)
+    peps_tree = inner_networks(
+      peps_bra_split,
+      peps_ket_split,
+      peps_ket_split_ham,
+      [projectors_row[i]],
+      [H_row[i]],
+      tree,
+    )[1]
+    leaves = get_leaves(peps_tree)
+    @test length(leaves) == 2 * Nx * Ny + length(projectors_row[i]) + Nx
+    executor = Executor([peps_tree])
+    out = batch_tensor_contraction(executor)
+    @test size(out[1]) == ()
+  end
+  for i in 1:length(projectors_column)
+    peps_tree = inner_networks(
+      peps_bra_split_rot,
+      peps_ket_split_rot,
+      peps_ket_split_rot_ham,
+      [projectors_column[i]],
+      [H_column[i]],
+      tree,
+    )[1]
+    leaves = get_leaves(peps_tree)
+    @test length(leaves) == 2 * Nx * Ny + length(projectors_column[i]) + Ny
+    executor = Executor([peps_tree])
+    out = batch_tensor_contraction(executor)
+    @test size(out[1]) == ()
   end
 end

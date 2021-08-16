@@ -10,7 +10,8 @@ using ..ITensorNetworks:
   insert_projectors,
   split_network,
   rayleigh_quotient,
-  Models
+  Models,
+  tree
 using ..ITensorNetworks: broadcast_add, broadcast_minus, broadcast_mul, broadcast_inner
 
 function loss_grad_wrap(peps::PEPS, Hs::Array)
@@ -88,7 +89,7 @@ function loss_grad_wrap(
     peps_ket_split_rot_ham = prime(sites, peps_ket_split_rot)
     # generate network
     network_list_row = inner_networks(
-      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row, Hs_row
+      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row, Hs_row, tree
     )
     network_list_column = inner_networks(
       peps_bra_split_rot,
@@ -96,8 +97,9 @@ function loss_grad_wrap(
       peps_ket_split_rot_ham,
       projectors_column,
       Hs_column,
+      tree,
     )
-    network_inner = inner_network(peps_bra_split, peps_ket_split, projectors_row[1])
+    network_inner = inner_network(peps_bra_split, peps_ket_split, projectors_row[1], tree)
     network_list = vcat(network_list_row, network_list_column, [network_inner])
     variables = flatten([
       peps_bra_split,
