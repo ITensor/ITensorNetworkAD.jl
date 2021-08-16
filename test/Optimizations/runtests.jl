@@ -1,12 +1,6 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
-  PEPS,
-  inner_network,
-  Models,
-  flatten,
-  insert_projectors,
-  split_network,
-  generate_inner_network
+  PEPS, inner_network, Models, flatten, insert_projectors, split_network
 using ITensorNetworkAD.Optimizations: gradient_descent
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
@@ -37,6 +31,29 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
   @test abs(energy - losses_ls[end]) < 0.2
   @test abs(energy - losses_lbfgs[end]) < 0.2
   @test abs(energy - losses_cg[end]) < 0.2
+end
+
+@testset "test the loss of optimization" begin
+  Nx, Ny = 3, 3
+  num_sweeps = 20
+  cutoff = 1e-15
+  maxdim = 100
+  sites = siteinds("S=1/2", Ny, Nx)
+  peps = PEPS(sites; linkdims=2)
+  randn!(peps)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  losses_gd = gradient_descent(
+    peps,
+    H_line,
+    insert_projectors;
+    stepsize=0.005,
+    num_sweeps=num_sweeps,
+    cutoff=cutoff,
+    maxdim=maxdim,
+  )
+  for i in 3:(length(losses_gd) - 1)
+    @test losses_gd[i] >= losses_gd[i + 1]
+  end
 end
 
 @testset "test the equivalence of local and line hamiltonian" begin
@@ -114,7 +131,7 @@ end
   function loss(peps::PEPS)
     peps_prime = prime(linkinds, peps)
     peps_prime_ham = prime(peps)
-    network_list = generate_inner_network(peps, peps_prime, peps_prime_ham, [])
+    network_list = [inner_network(peps, peps_prime)]
     variables = flatten([peps, peps_prime])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]
@@ -138,9 +155,7 @@ end
     peps_ket = addtags(linkinds, peps, "ket")
     peps_bra_split = split_network(peps_bra)
     peps_ket_split = split_network(peps_ket)
-    network_list = generate_inner_network(
-      peps_bra_split, peps_ket_split, peps_ket_split, projectors, []
-    )
+    network_list = [inner_network(peps_bra_split, peps_ket_split, projectors)]
     variables = flatten([peps_bra_split, peps_ket_split])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]
@@ -161,9 +176,8 @@ end
     peps_bra = addtags(linkinds, peps, "bra")
     peps_ket = addtags(linkinds, peps, "ket")
     sites = commoninds(peps_bra, peps_ket)
-    peps_ket_ham = prime(sites, peps_ket)
     projectors = [ITensor(1.0)]
-    network_list = generate_inner_network(peps_bra, peps_ket, peps_ket_ham, projectors, [])
+    network_list = [inner_network(peps_bra, peps_ket, projectors)]
     variables = flatten([peps_bra, peps_ket])
     inners = batch_tensor_contraction(network_list, variables...)
     return sum(inners)[]

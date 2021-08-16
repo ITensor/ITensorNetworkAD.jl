@@ -142,7 +142,10 @@ default_projector_center(tn::Matrix) = (:, (size(tn, 2) + 1) ÷ 2)
 
 # Split the links of the 2D tensor network in preperation for
 # inserting MPS projectors.
-function split_network(tn::Matrix{ITensor}; projector_center=default_projector_center(tn))
+function split_network(
+  tn::Matrix{ITensor}; projector_center=default_projector_center(tn), rotation=false
+)
+  tn = rotation ? rotr90(tn) : tn
   @assert (projector_center[1] == :)
   tn_split = copy(tn)
   nrows, ncols = size(tn)
@@ -154,7 +157,7 @@ function split_network(tn::Matrix{ITensor}; projector_center=default_projector_c
       tn_split[:, ncol] = split_links(tn_split[:, ncol])
     end
   end
-  return tn_split
+  return rotation ? rotr90(tn_split, -1) : tn_split
 end
 
 # From an MPS, create a 1-site projector onto the MPS basis

@@ -6,12 +6,13 @@ function ChainRulesCore.rrule(
   ::typeof(split_network),
   tn::Matrix{ITensor};
   projector_center=default_projector_center(tn),
+  rotation=false,
 )
   function pullback(dtn_split::Matrix{ITensor})
     dtn = map(t -> replaceprime(t, 1 => 0), dtn_split)
-    return (NoTangent(), dtn, NoTangent())
+    return (NoTangent(), dtn)
   end
-  return split_network(tn; projector_center=projector_center), pullback
+  return split_network(tn; projector_center=projector_center, rotation=rotation), pullback
 end
 
 function ChainRulesCore.rrule(::typeof(ITensors.data), P::PEPS)
@@ -78,20 +79,30 @@ function ChainRulesCore.rrule(::typeof(flatten), v::Array{<:PEPS})
   return flatten(v), adjoint_pullback
 end
 
+@non_differentiable inner_network(peps::PEPS, peps_prime::PEPS)
+
+@non_differentiable inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{ITensor})
+
 # gradient of this function returns nothing.
-@non_differentiable generate_inner_network(
+@non_differentiable inner_networks(
   peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::Array
 )
 
-@non_differentiable generate_inner_network(
+@non_differentiable inner_networks(
+  peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, projectors::Vector{ITensor}, Hs::Array
+)
+
+@non_differentiable inner_networks(
   peps::PEPS,
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
-  projectors::Array{<:ITensor,1},
-  Hs::Array,
+  projectors::Vector{Vector{ITensor}},
+  Hs::Vector{Tuple},
 )
 
-@non_differentiable insert_projectors(peps::PEPS, center, cutoff, maxdim)
+@non_differentiable insert_projectors(peps::PEPS, cutoff, maxdim)
+
+@non_differentiable insert_projectors(peps::PEPS, center::Tuple, cutoff, maxdim)
 
 @non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
 
