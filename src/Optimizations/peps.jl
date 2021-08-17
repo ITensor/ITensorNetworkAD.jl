@@ -120,12 +120,43 @@ function loss_grad_wrap(
   return loss_w_grad
 end
 
+function backtracking_linesearch(beta::Float64, loss_w_grad, peps)
+  stepsize = 1.0
+  stepsize_lb = 1e-2
+  l, g = loss_w_grad(peps)
+  update_peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
+  update_l, update_g = loss_w_grad(update_peps)
+  while update_l > l - stepsize / 2.0 * broadcast_inner(g, g) && stepsize >= stepsize_lb
+    stepsize = stepsize * beta
+    print("stepsize trial: $stepsize \n")
+    update_peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
+    update_l, update_g = loss_w_grad(update_peps)
+  end
+  print("stepsize from backtracking_linesearch is $stepsize \n")
+  return stepsize
+end
+
 function gradient_descent(peps::PEPS, loss_w_grad; stepsize::Float64, num_sweeps::Int)
   # gradient descent iterations
   losses = []
   for iter in 1:num_sweeps
     l, g = loss_w_grad(peps)
     print("The rayleigh quotient at iteraton $iter is $l\n")
+    peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
+    push!(losses, l)
+  end
+  return losses
+end
+
+function gradient_descent(
+  peps::PEPS, loss_w_grad, ::typeof(backtracking_linesearch); beta::Float64, num_sweeps::Int
+)
+  # gradient descent iterations
+  losses = []
+  for iter in 1:num_sweeps
+    l, g = loss_w_grad(peps)
+    print("The rayleigh quotient at iteraton $iter is $l\n")
+    stepsize = backtracking_linesearch(beta, loss_w_grad, peps)
     peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
     push!(losses, l)
   end
@@ -159,6 +190,22 @@ function gradient_descent(
 )
   loss_w_grad = loss_grad_wrap(peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim)
   return gradient_descent(peps, loss_w_grad; stepsize=stepsize, num_sweeps=num_sweeps)
+end
+
+function gradient_descent(
+  peps::PEPS,
+  Hs::Array,
+  ::typeof(insert_projectors),
+  ::typeof(backtracking_linesearch);
+  beta::Float64,
+  num_sweeps::Int,
+  cutoff=1e-15,
+  maxdim=100,
+)
+  loss_w_grad = loss_grad_wrap(peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim)
+  return gradient_descent(
+    peps, loss_w_grad, backtracking_linesearch; beta=beta, num_sweeps=num_sweeps
+  )
 end
 
 function gd_error_tracker(
@@ -228,7 +275,7 @@ function OptimKit.optimize(peps::PEPS, loss_w_grad; num_sweeps::Int, method="GD"
   scale(peps, alpha) = broadcast_mul(alpha, peps)
   add(peps1, peps2, alpha) = broadcast_add(peps1, broadcast_mul(alpha, peps2))
   retract(peps1, peps2, alpha) = (add(peps1, peps2, alpha), peps2)
-  linesearch = HagerZhangLineSearch()
+  linesearch = HagerZhangLineSearch(; c₁=0.1, c₂=0.9, verbosity=0)
   if method == "GD"
     alg = GradientDescent(num_sweeps, 1e-8, linesearch, 2)
   elseif method == "LBFGS"
