@@ -14,7 +14,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
-ChainRulesCore = "0.10"
+ChainRulesCore = "0.10, 1"
 ITensors = "0.2"
 OptimKit = "0.3"
 Reexport = "1"
