@@ -16,45 +16,15 @@ using ..ITensorNetworks: broadcast_add, broadcast_minus, broadcast_mul, broadcas
 
 function loss_grad_wrap(peps::PEPS, Hs::Array)
   function loss(peps::PEPS)
-    peps_prime = prime(linkinds, peps)
-    peps_prime_ham = prime(peps)
-    network_H = inner_networks(peps, peps_prime, peps_prime_ham, Hs)
-    network_inner = inner_network(peps, peps_prime)
-    network_list = vcat(network_H, [network_inner])
-    variables = flatten([peps, peps_prime, peps_prime_ham])
-    inners = batch_tensor_contraction(network_list, variables...)
-    return rayleigh_quotient(inners)
-  end
-  loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]
-  return loss_w_grad
-end
-
-function loss_grad_wrap(
-  peps::PEPS, Hs::Array, ::typeof(insert_projectors); cutoff=1e-15, maxdim=100
-)
-  center = (div(size(peps.data)[1] - 1, 2) + 1, :)
-  init_call = true
-  cache = NetworkCache()
-  function loss(peps::PEPS)
-    tn_split, projectors = insert_projectors(peps, center, cutoff, maxdim)
     peps_bra = addtags(linkinds, peps, "bra")
     peps_ket = addtags(linkinds, peps, "ket")
     sites = commoninds(peps_bra, peps_ket)
-    peps_bra_split = split_network(peps_bra)
-    peps_ket_split = split_network(peps_ket)
-    peps_ket_split_ham = prime(sites, peps_ket_split)
-    # generate network
-    network_H = inner_networks(
-      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors, Hs
-    )
-    network_inner = inner_network(peps_bra_split, peps_ket_split, projectors)
+    peps_ket_ham = prime(sites, peps_ket)
+    network_H = inner_networks(peps_bra, peps_ket, peps_ket_ham, Hs)
+    network_inner = inner_network(peps_bra, peps_ket)
     network_list = vcat(network_H, [network_inner])
-    variables = flatten([peps_bra_split, peps_ket_split, peps_ket_split_ham])
-    if init_call == true
-      cache = NetworkCache(network_list)
-      init_call = false
-    end
-    inners = batch_tensor_contraction(network_list, cache, variables...)
+    variables = flatten([peps_bra, peps_ket, peps_ket_ham])
+    inners = batch_tensor_contraction(network_list, variables...)
     return rayleigh_quotient(inners)
   end
   loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]
@@ -122,15 +92,22 @@ end
 
 function backtracking_linesearch(beta::Float64, loss_w_grad, peps)
   stepsize = 1.0
-  stepsize_lb = 1e-2
+  stepsize_lb = 0.0
   l, g = loss_w_grad(peps)
   update_peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
   update_l, update_g = loss_w_grad(update_peps)
-  while update_l > l - stepsize / 2.0 * broadcast_inner(g, g) && stepsize >= stepsize_lb
+  gnrm_square = broadcast_inner(g, g)
+  threshold = l - stepsize / 2.0 * broadcast_inner(g, g)
+  print("threshold: $threshold, gradient norm: $gnrm_square \n")
+  while update_l > threshold && stepsize >= stepsize_lb
     stepsize = stepsize * beta
     print("stepsize trial: $stepsize \n")
     update_peps = broadcast_minus(peps, broadcast_mul(stepsize, g))
     update_l, update_g = loss_w_grad(update_peps)
+    threshold = l - stepsize / 2.0 * broadcast_inner(g, g)
+    diffg = broadcast_minus(g, update_g)
+    update_gnrm_square = broadcast_inner(diffg, diffg)
+    print("threshold: $threshold, update_l: $update_l, update_g: $update_gnrm_square \n")
   end
   print("stepsize from backtracking_linesearch is $stepsize \n")
   return stepsize
@@ -209,6 +186,7 @@ function gradient_descent(
 end
 
 function gd_error_tracker(
+  peps,
   loss_w_grad,
   loss_w_grad_approx;
   stepsize::Float64,
@@ -229,37 +207,15 @@ function gd_error_tracker(
 end
 
 function gd_error_tracker(
-  peps::PEPS, Hs::Array; stepsize::Float64, num_sweeps::Int, cutoff=1e-15, maxdim=100
+  peps::PEPS, Hs::Vector; stepsize::Float64, num_sweeps::Int, cutoff=1e-15, maxdim=100
 )
+  ITensors.set_warn_order(40)
   loss_w_grad = loss_grad_wrap(peps, Hs)
   loss_w_grad_approx = loss_grad_wrap(
     peps, Hs, insert_projectors; cutoff=cutoff, maxdim=maxdim
   )
   return gd_error_tracker(
-    loss_w_grad,
-    loss_w_grad_approx;
-    stepsize=stepsize,
-    num_sweeps=num_sweeps,
-    cutoff=cutoff,
-    maxdim=maxdim,
-  )
-end
-
-function gd_error_tracker(
-  peps::PEPS,
-  Hs::Array{Models.LineMPO},
-  stepsize::Float64,
-  num_sweeps::Int,
-  cutoff=1e-15,
-  maxdim=100,
-)
-  Hs_row = [H for H in Hs if H.coord[2] isa Colon]
-  Hs_column = [H for H in Hs if H.coord[1] isa Colon]
-  loss_w_grad = loss_grad_wrap(peps, vcat(Hs_row, Hs_column))
-  loss_w_grad_approx = loss_grad_wrap(
-    peps, Hs_row, Hs_column, insert_projectors; cutoff=cutoff, maxdim=maxdim
-  )
-  return gd_error_tracker(
+    peps,
     loss_w_grad,
     loss_w_grad_approx;
     stepsize=stepsize,
