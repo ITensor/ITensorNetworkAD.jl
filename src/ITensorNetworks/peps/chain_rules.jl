@@ -2,19 +2,6 @@ using AutoHOOT, ChainRulesCore
 
 broadcast_notangent(a) = broadcast(_ -> NoTangent(), a)
 
-function ChainRulesCore.rrule(
-  ::typeof(split_network),
-  tn::Matrix{ITensor};
-  projector_center=default_projector_center(tn),
-  rotation=false,
-)
-  function pullback(dtn_split::Matrix{ITensor})
-    dtn = map(t -> replaceprime(t, 1 => 0), dtn_split)
-    return (NoTangent(), dtn)
-  end
-  return split_network(tn; projector_center=projector_center, rotation=rotation), pullback
-end
-
 function ChainRulesCore.rrule(::typeof(ITensors.data), P::PEPS)
   return P.data, d_data -> (NoTangent(), PEPS(d_data))
 end
@@ -113,10 +100,8 @@ end
   ::typeof(tree),
 )
 
+@non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
+
 @non_differentiable insert_projectors(peps::PEPS, cutoff, maxdim)
 
 @non_differentiable insert_projectors(peps::PEPS, center::Tuple, cutoff, maxdim)
-
-@non_differentiable ITensors.commoninds(p1::PEPS, p2::PEPS)
-
-@non_differentiable SubNetwork(inputs::Union{SubNetwork,ITensor}...)

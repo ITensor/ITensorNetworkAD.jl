@@ -6,12 +6,11 @@ using ITensors: data
 
 include("subnetwork.jl")
 include("ITensors.jl")
-include("lattices.jl")
+include("networks/lattices.jl")
+include("networks/inds_network.jl")
+include("networks/itensor_network.jl")
 include("models/models.jl")
-include("inds_network.jl")
-include("itensor_network.jl")
-include("boundary_mps.jl")
-include("peps.jl")
-include("chain_rules.jl")
+include("approximations/approximations.jl")
+include("peps/peps.jl")
 
 end
