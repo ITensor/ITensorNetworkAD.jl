@@ -1,5 +1,5 @@
 using ITensors
-include("../lattices.jl")
+include("../networks/lattices.jl")
 
 struct LocalMPO
   mpo::MPO

@@ -1,3 +1,5 @@
+using ChainRulesCore
+
 struct SubNetwork
   inputs::Vector{Union{SubNetwork,ITensor}}
 end
@@ -25,3 +27,5 @@ function neighboring_tensors(subnetwork::SubNetwork, tensor_list::Vector{ITensor
   is_neighbor(t) = length(intersect(subnet_inds, inds(t))) > 0
   return [t for t in tensor_list if is_neighbor(t)]
 end
+
+@non_differentiable SubNetwork(inputs::Union{SubNetwork,ITensor}...)

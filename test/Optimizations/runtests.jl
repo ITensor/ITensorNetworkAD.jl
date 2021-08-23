@@ -1,6 +1,6 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
-  PEPS, inner_network, Models, flatten, insert_projectors, split_network
+  PEPS, inner_network, inner_networks, Models, flatten, insert_projectors, split_network
 using ITensorNetworkAD.Optimizations: gradient_descent, backtracking_linesearch
 using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
@@ -155,27 +155,36 @@ end
 end
 
 @testset "test split network" begin
-  Nx, Ny = 3, 3
+  ITensors.set_warn_order(40)
+  Ny, Nx = 3, 4
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)
   randn!(peps)
-  center = (div(size(peps.data)[1] - 1, 2) + 1, :)
-  function loss(peps::PEPS)
-    tn_split, projectors = insert_projectors(peps, center)
-    peps_bra = addtags(linkinds, peps, "bra")
-    peps_ket = addtags(linkinds, peps, "ket")
-    peps_bra_split = split_network(peps_bra)
-    peps_ket_split = split_network(peps_ket)
-    network_list = [inner_network(peps_bra_split, peps_ket_split, projectors)]
-    variables = flatten([peps_bra_split, peps_ket_split])
-    inners = batch_tensor_contraction(network_list, variables...)
-    return sum(inners)[]
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  H_line = [H for H in H_line if H.coord[2] isa Colon]
+  tn_split_row, tn_split_column, projectors_row, projectors_column = insert_projectors(
+    peps, 1e-15, 1000
+  )
+  for (i, H) in enumerate(H_line)
+    function loss(peps::PEPS)
+      peps_bra = addtags(linkinds, peps, "bra")
+      peps_ket = addtags(linkinds, peps, "ket")
+      sites = commoninds(peps_bra, peps_ket)
+      peps_bra_split = split_network(peps_bra)
+      peps_ket_split = split_network(peps_ket)
+      peps_ket_split_ham = prime(sites, peps_ket_split)
+      network_list = inner_networks(
+        peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row[i], [H]
+      )
+      variables = flatten([peps_bra_split])
+      inners = batch_tensor_contraction(network_list, variables...)
+      return sum(inners)[]
+    end
+    g = gradient(loss, peps)
+    inner = inner_networks(peps, prime(linkinds, peps), prime(peps), [H])[1]
+    g_true_first_site = contract(vcat(inner[2:length(inner)]))
+    @test isapprox(g[1].data[1, 1], g_true_first_site)
   end
-  g = gradient(loss, peps)
-  inner = inner_network(peps, prime(linkinds, peps))
-  g_true_first_site = contract(inner[2:length(inner)])
-  g_true_first_site = 2 * g_true_first_site
-  @test isapprox(g[1].data[1, 1], g_true_first_site)
 end
 
 @testset "test inner product gradient with tagging" begin

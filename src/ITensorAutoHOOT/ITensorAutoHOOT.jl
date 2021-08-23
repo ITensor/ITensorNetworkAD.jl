@@ -7,6 +7,9 @@ export generate_einsum_expr, generate_network, extract_network, compute_graph, r
 export batch_tensor_contraction, NetworkCache
 
 include("contraction_AD.jl")
+include("network_sum.jl")
+include("network_cache.jl")
+include("executor.jl")
 include("batch_contraction.jl")
 
 end
