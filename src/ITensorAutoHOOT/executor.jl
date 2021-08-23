@@ -1,7 +1,7 @@
 using ChainRulesCore
 
 using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork, get_leaves
+using ..ITensorNetworks: SubNetwork, get_leaves, AbstractTensor
 
 struct Executor
   net_sums::Array{<:NetworkSum}
@@ -10,13 +10,13 @@ end
 
 NetworkSum() = NetworkSum([])
 
-function Executor(networks::Vector{Vector{ITensor}})
+function Executor(networks::Vector{<:Vector{<:AbstractTensor}})
   nodes, node_dict = generate_einsum_expr(networks; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end
 
-@non_differentiable Executor(networks::Vector{Vector{ITensor}})
+@non_differentiable Executor(networks::Vector{<:Vector{<:AbstractTensor}})
 
 function Executor(trees::Vector{SubNetwork})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
@@ -26,7 +26,7 @@ end
 
 @non_differentiable Executor(trees::Vector{SubNetwork})
 
-function Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
+function Executor(networks::Vector{<:Vector{<:AbstractTensor}}, cache::NetworkCache)
   node_dict = Dict()
   for (node, index) in cache.index_dict
     i, j = index
@@ -35,7 +35,9 @@ function Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
   return Executor(cache.net_sums, node_dict)
 end
 
-@non_differentiable Executor(networks::Vector{Vector{ITensor}}, cache::NetworkCache)
+@non_differentiable Executor(
+  networks::Vector{<:Vector{<:AbstractTensor}}, cache::NetworkCache
+)
 
 function Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
   return Executor(get_leaves(trees), cache)

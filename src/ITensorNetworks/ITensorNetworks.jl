@@ -12,5 +12,6 @@ include("networks/itensor_network.jl")
 include("models/models.jl")
 include("approximations/approximations.jl")
 include("peps/peps.jl")
+include("MPScalculus/contract.jl")
 
 end

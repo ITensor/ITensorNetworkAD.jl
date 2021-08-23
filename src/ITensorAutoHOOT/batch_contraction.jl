@@ -2,7 +2,7 @@ using AutoHOOT
 using ChainRulesCore
 
 using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork
+using ..ITensorNetworks: SubNetwork, AbstractTensor
 
 const ad = AutoHOOT.autodiff
 
@@ -58,13 +58,13 @@ end
 """Perform a batch of tensor contractions, each one defined by a tensor network.
 Parameters
 ----------
-networks: An array of networks. Each network is represented by an array of ITensor tensors
+networks: An array of networks. Each network is represented by an array of tensors
 vars: the tensors to take derivative of
 Returns
 -------
 A list of tensors representing the contraction outputs of each network.
 """
-function batch_tensor_contraction(networks::Vector{Vector{ITensor}}, vars...)
+function batch_tensor_contraction(networks::Vector{<:Vector{<:AbstractTensor}}, vars...)
   return batch_tensor_contraction(Executor(networks), vars...)
 end
 
@@ -73,7 +73,7 @@ function batch_tensor_contraction(trees::Vector{SubNetwork}, vars...)
 end
 
 function batch_tensor_contraction(
-  networks::Vector{Vector{ITensor}}, cache::NetworkCache, vars...
+  networks::Vector{<:Vector{<:AbstractTensor}}, cache::NetworkCache, vars...
 )
   return batch_tensor_contraction(Executor(networks, cache), vars...)
 end
