@@ -43,6 +43,7 @@ function compute_graph!(out_nodes, node_dict)
           @assert(n.name == "1.0")
         end
       end
+      input_list = Vector{typeof(input_list[1])}(input_list)
       node_dict[node] = contract(input_list)
     end
   end
@@ -151,7 +152,7 @@ function update_dict!(node_dict::Dict, tensor)
     shape = [space(index) for index in inds(tensor)]
     node = ad.Variable(nodename; shape=shape)
   else
-    node = ad.scalar(scalar(tensor))
+    node = ad.scalar(tensor[])
   end
   node_dict[node] = tensor
   return node

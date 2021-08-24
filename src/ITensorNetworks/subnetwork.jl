@@ -1,7 +1,5 @@
 using ChainRulesCore
 
-AbstractTensor = Union{ITensor,MPS}
-
 struct SubNetwork
   inputs::Vector{Union{SubNetwork,AbstractTensor}}
 end
