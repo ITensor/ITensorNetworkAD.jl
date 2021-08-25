@@ -26,7 +26,7 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
 
   out = A * B * C
   out2 = contract(mps_A, mps_B, mps_C)
-  @test isapprox(out, out2.mps)
+  @test isapprox(out, ITensor(out2))
 end
 
 @testset "test batch_tensor_contraction" begin
