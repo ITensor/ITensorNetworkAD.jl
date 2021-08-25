@@ -10,7 +10,7 @@ AbstractTensor = Union{ITensor,MPSTensor}
 
 function ITensors.contract(mps1::MPS, mps2::MPS; cutoff=1e-15, maxdim=1000)
   ## TODO: modify this function based on https://arxiv.org/pdf/1912.03014.pdf
-  tensor = contract(vcat(mps1.data, mps2.data)...)
+  tensor = contract(vcat(collect(mps1), collect(mps2))...)
   return if size(tensor) == ()
     MPS([tensor])
   else
@@ -25,7 +25,7 @@ function ITensors.inds(tensor::MPSTensor)
 end
 
 # contract into one ITensor
-ITensors.ITensor(t::MPSTensor) = contract(t.mps.data)
+ITensors.ITensor(t::MPSTensor) = contract(collect(t.mps)...)
 
 ITensors.contract(t1::MPSTensor) = t1
 
@@ -39,9 +39,9 @@ ITensors.contract(t1::MPSTensor, t2::MPSTensor...) = contract(t1, contract(t2...
 ITensors.contract(t_list::Vector{MPSTensor}) = contract(t_list...)
 
 function Base.getindex(t::MPSTensor)
-  @assert length(t.mps.data) == 1
-  @assert size(t.mps.data[1]) == ()
-  return t.mps.data[1][]
+  @assert length(t.mps) == 1
+  @assert order(t.mps[1]) == 0
+  return t.mps[1][]
 end
 
 function ChainRulesCore.rrule(::typeof(getindex), x::MPSTensor)
