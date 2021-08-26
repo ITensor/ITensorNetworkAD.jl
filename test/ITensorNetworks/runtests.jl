@@ -7,6 +7,7 @@ using Test
     "subnetwork.jl",
     "peps.jl",
     "models.jl",
+    "mps_calculus.jl",
     "itensor_network.jl",
     "projectors.jl",
   ]

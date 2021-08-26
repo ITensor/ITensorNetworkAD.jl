@@ -1,7 +1,7 @@
 using ITensors, AutoHOOT
 
 using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork
+using ..ITensorNetworks: SubNetwork, AbstractTensor
 
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
@@ -17,7 +17,7 @@ end
 
 """
 Retrieve the key from the dictionary that maps AutoHOOT nodes
-to ITensor tensors. Returns Nothing if key not exists.
+to tensors. Returns Nothing if key not exists.
 """
 retrieve_key(dict, value) = findfirst(v -> (v === value), dict)
 
@@ -25,12 +25,12 @@ retrieve_key(dict, value) = findfirst(v -> (v === value), dict)
 Parameters
 ----------
 outnodes: A list of AutoHOOT einsum nodes
-node_dict: A dictionary mapping AutoHOOT node to ITensor tensor
+node_dict: A dictionary mapping AutoHOOT node to tensor
 Returns
 -------
-A list of ITensor tensors.
+A list of tensors.
 """
-function compute_graph!(out_nodes, node_dict)
+function compute_graph!(out_nodes, node_dict; kwargs...)
   topo_order = ad.find_topo_sort(out_nodes)
   for node in topo_order
     if haskey(node_dict, node) == false && node.name != "1.0"
@@ -43,25 +43,28 @@ function compute_graph!(out_nodes, node_dict)
           @assert(n.name == "1.0")
         end
       end
-      node_dict[node] = contract(input_list)
+      input_list = Vector{typeof(input_list[1])}(input_list)
+      node_dict[node] = contract(input_list; kwargs...)
     end
   end
   return [node_dict[node] for node in out_nodes]
 end
 
-compute_graph(out_nodes, node_dict) = compute_graph!(out_nodes, copy(node_dict))
+function compute_graph(out_nodes, node_dict; kwargs...)
+  return compute_graph!(out_nodes, copy(node_dict); kwargs...)
+end
 
-"""Extract an ITensor network from an input network based on AutoHOOT einsum tree.
-The ITensor input network is defined by the tensors in node_dict.
+"""Extract an tensor network from an input network based on AutoHOOT einsum tree.
+The input network is defined by the tensors in node_dict.
 Note: this function ONLY extracts network based on the input nodes rather than einstr.
 The output network can be hierarchical.
 Parameters
 ----------
 outnode: AutoHOOT einsum node
-node_dict: A dictionary mapping AutoHOOT node to ITensor tensor
+node_dict: A dictionary mapping AutoHOOT node to tensor
 Returns
 -------
-A list representing the ITensor output network.
+A list representing the output network.
 Example
 -------
 >>> extract_network(einsum("ab,bc->ac", A, einsum("bd,dc->bc", B, C)),
@@ -95,16 +98,18 @@ function inner(n1, n2)
   return ad.einsum(str * "," * str * "->", n1, n2)
 end
 
-"""Generate AutoHOOT einsum expression based on a list of ITensor input networks
+"""Generate AutoHOOT einsum expression based on a list of input networks
 Parameters
 ----------
-network_list: An array of networks. Each network is represented by an array of ITensor tensors
+network_list: An array of networks. Each network is represented by an array of tensors
 Returns
 -------
 A list of AutoHOOT einsum node;
-A dictionary mapping AutoHOOT input node to ITensor tensor
+A dictionary mapping AutoHOOT input node to tensor
 """
-function generate_einsum_expr(network_list::Vector{Vector{ITensor}}; optimize=false)
+function generate_einsum_expr(
+  network_list::Vector{<:Vector{<:AbstractTensor}}; optimize=false
+)
   node_dict = Dict()
   outnodes = [
     generate_einsum_expr!(network, node_dict; optimize=optimize) for network in network_list
@@ -118,7 +123,9 @@ function generate_einsum_expr(trees::Vector{SubNetwork}; optimize=false)
   return outnodes, node_dict
 end
 
-function generate_einsum_expr!(network::Vector{ITensor}, node_dict::Dict; optimize=false)
+function generate_einsum_expr!(
+  network::Vector{<:AbstractTensor}, node_dict::Dict; optimize=false
+)
   input_nodes = input_nodes_generation!(network, node_dict)
   einstr = einstr_generation(network)
   out = ad.einsum(einstr, input_nodes...)
@@ -128,7 +135,7 @@ end
 function generate_einsum_expr!(tree::SubNetwork, node_dict::Dict; optimize=false)
   input_nodes = []
   for input in tree.inputs
-    if input isa ITensor
+    if input isa AbstractTensor
       node = input_nodes_generation!([input], node_dict)[1]
     else
       node = generate_einsum_expr!(input, node_dict; optimize=optimize)
@@ -147,17 +154,17 @@ function update_dict!(node_dict::Dict, tensor)
     shape = [space(index) for index in inds(tensor)]
     node = ad.Variable(nodename; shape=shape)
   else
-    node = ad.scalar(scalar(tensor))
+    node = ad.scalar(tensor[])
   end
   node_dict[node] = tensor
   return node
 end
 
-"""Generate AutoHOOT nodes based on ITensor tensors
+"""Generate AutoHOOT nodes based on tensors
 Parameters
 ----------
-network: An array of ITensor tensors
-node_dict: A dictionary mapping AutoHOOT node to ITensor tensor.
+network: An array of tensors
+node_dict: A dictionary mapping AutoHOOT node to tensor.
 node_dict will be inplace updated.
 Returns
 -------
