@@ -30,7 +30,7 @@ Returns
 -------
 A list of tensors.
 """
-function compute_graph!(out_nodes, node_dict)
+function compute_graph!(out_nodes, node_dict; kwargs...)
   topo_order = ad.find_topo_sort(out_nodes)
   for node in topo_order
     if haskey(node_dict, node) == false && node.name != "1.0"
@@ -44,13 +44,15 @@ function compute_graph!(out_nodes, node_dict)
         end
       end
       input_list = Vector{typeof(input_list[1])}(input_list)
-      node_dict[node] = contract(input_list)
+      node_dict[node] = contract(input_list; kwargs...)
     end
   end
   return [node_dict[node] for node in out_nodes]
 end
 
-compute_graph(out_nodes, node_dict) = compute_graph!(out_nodes, copy(node_dict))
+function compute_graph(out_nodes, node_dict; kwargs...)
+  return compute_graph!(out_nodes, copy(node_dict); kwargs...)
+end
 
 """Extract an tensor network from an input network based on AutoHOOT einsum tree.
 The input network is defined by the tensors in node_dict.

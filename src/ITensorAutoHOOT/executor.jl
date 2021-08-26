@@ -45,8 +45,8 @@ end
 
 @non_differentiable Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
 
-function run(executor::Executor)
-  return [run(net_sum, executor.feed_dict) for net_sum in executor.net_sums]
+function run(executor::Executor; kwargs...)
+  return [run(net_sum, executor.feed_dict; kwargs...) for net_sum in executor.net_sums]
 end
 
 Base.length(executor::Executor) = Base.length(executor.net_sums)

@@ -5,8 +5,8 @@ struct NetworkSum
 end
 
 # TODO: add caching intermediates here
-function run(net_sum::NetworkSum, feed_dict::Dict)
-  return ITensors.sum(compute_graph(net_sum.nodes, feed_dict))
+function run(net_sum::NetworkSum, feed_dict::Dict; kwargs...)
+  return ITensors.sum(compute_graph(net_sum.nodes, feed_dict; kwargs...))
 end
 
 inner(net_sum::NetworkSum, n2) = NetworkSum([inner(n1, n2) for n1 in net_sum.nodes])

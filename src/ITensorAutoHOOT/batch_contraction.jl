@@ -43,16 +43,16 @@ end
 
 @non_differentiable vjps(executor::Executor, vars, vector)
 
-batch_tensor_contraction(executor::Executor, vars...) = run(executor)
+batch_tensor_contraction(executor::Executor, vars...; kwargs...) = run(executor; kwargs...)
 
 function ChainRulesCore.rrule(
-  ::typeof(batch_tensor_contraction), executor::Executor, vars...
+  ::typeof(batch_tensor_contraction), executor::Executor, vars...; kwargs...
 )
   function pullback(v)
-    output = batch_tensor_contraction(vjps(executor, vars, v), vars...)
+    output = batch_tensor_contraction(vjps(executor, vars, v), vars...; kwargs...)
     return (NoTangent(), NoTangent(), Tuple(output)...)
   end
-  return batch_tensor_contraction(executor, vars...), pullback
+  return batch_tensor_contraction(executor, vars...; kwargs...), pullback
 end
 
 """Perform a batch of tensor contractions, each one defined by a tensor network.
@@ -64,20 +64,24 @@ Returns
 -------
 A list of tensors representing the contraction outputs of each network.
 """
-function batch_tensor_contraction(networks::Vector{<:Vector{<:AbstractTensor}}, vars...)
-  return batch_tensor_contraction(Executor(networks), vars...)
+function batch_tensor_contraction(
+  networks::Vector{<:Vector{<:AbstractTensor}}, vars...; kwargs...
+)
+  return batch_tensor_contraction(Executor(networks), vars...; kwargs...)
 end
 
-function batch_tensor_contraction(trees::Vector{SubNetwork}, vars...)
-  return batch_tensor_contraction(Executor(trees), vars...)
+function batch_tensor_contraction(trees::Vector{SubNetwork}, vars...; kwargs...)
+  return batch_tensor_contraction(Executor(trees), vars...; kwargs...)
 end
 
 function batch_tensor_contraction(
-  networks::Vector{<:Vector{<:AbstractTensor}}, cache::NetworkCache, vars...
+  networks::Vector{<:Vector{<:AbstractTensor}}, cache::NetworkCache, vars...; kwargs...
 )
-  return batch_tensor_contraction(Executor(networks, cache), vars...)
+  return batch_tensor_contraction(Executor(networks, cache), vars...; kwargs...)
 end
 
-function batch_tensor_contraction(trees::Vector{SubNetwork}, cache::NetworkCache, vars...)
-  return batch_tensor_contraction(Executor(trees, cache), vars...)
+function batch_tensor_contraction(
+  trees::Vector{SubNetwork}, cache::NetworkCache, vars...; kwargs...
+)
+  return batch_tensor_contraction(Executor(trees, cache), vars...; kwargs...)
 end
