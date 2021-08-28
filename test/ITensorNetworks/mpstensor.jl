@@ -21,11 +21,13 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
   out = A * B
   network = [mps_A, mps_B]
   nodes, dict = itensorah.generate_einsum_expr([network])
-  out_list = itensorah.compute_graph(nodes, dict; cutoff=1e-15, maxdim=1000)
+  out_list = itensorah.compute_graph(
+    nodes, dict; cutoff=1e-15, maxdim=1000, method="general_mps"
+  )
   @test isapprox(out, ITensor(out_list[1]))
 
   out = A * B * C
-  out2 = contract(mps_A, mps_B, mps_C; cutoff=1e-15, maxdim=1000)
+  out2 = contract(mps_A, mps_B, mps_C; cutoff=1e-15, maxdim=1000, method="general_mps")
   @test isapprox(out, ITensor(out2))
 end
 
@@ -42,7 +44,9 @@ end
 
   function network(A)
     tensor_network = [A, mps_B, mps_C]
-    out = itensorah.batch_tensor_contraction([tensor_network], A; cutoff=1e-15, maxdim=1000)
+    out = itensorah.batch_tensor_contraction(
+      [tensor_network], A; cutoff=1e-15, maxdim=1000, method="general_mps"
+    )
     return sum(out)[]
   end
   grad_A = gradient(network, mps_A)

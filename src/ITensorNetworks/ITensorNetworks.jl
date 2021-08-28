@@ -4,7 +4,7 @@ using ITensors
 
 using ITensors: data
 
-include("MPScalculus/contract.jl")
+include("MPSTensor/MPSTensor.jl")
 include("subnetwork.jl")
 include("ITensors.jl")
 include("networks/lattices.jl")
