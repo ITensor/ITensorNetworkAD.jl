@@ -1,8 +1,38 @@
 using ITensors, ITensorNetworkAD, AutoHOOT, Zygote, OptimKit
 using ITensorNetworkAD.ITensorNetworks:
-  PEPS, inner_network, inner_networks, Models, flatten, insert_projectors, split_network
-using ITensorNetworkAD.Optimizations: gradient_descent, backtracking_linesearch
-using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
+  PEPS,
+  inner_network,
+  inner_networks,
+  Models,
+  flatten,
+  insert_projectors,
+  split_network,
+  MPSTensor,
+  broadcast_inner
+using ITensorNetworkAD.Optimizations:
+  gradient_descent, backtracking_linesearch, loss_grad_wrap
+using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction, abstract_network
+
+@testset "test MPSTensor" begin
+  Nx, Ny = 3, 3
+  num_sweeps = 20
+  sites = siteinds("S=1/2", Ny, Nx)
+  peps = PEPS(sites; linkdims=2)
+  randn!(peps)
+  H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  params = Dict(:maxdim => 1000, :cutoff => 1e-15, :method => "general_mps")
+  loss_w_grad_mps = loss_grad_wrap(peps, H_line, abstract_network, MPSTensor; params...)
+  loss_w_grad = loss_grad_wrap(peps, H_line)
+  loss_mps, grad_mps = loss_w_grad_mps(peps)
+  loss, grad = loss_w_grad(peps)
+  print(loss_mps, loss)
+  print(grad_mps, grad)
+  g_mps_nrm = broadcast_inner(grad_mps, grad_mps)
+  g_nrm = broadcast_inner(grad, grad)
+  @test isapprox(loss, loss_mps)
+  @test isapprox(g_nrm, g_mps_nrm)
+end
 
 @testset "test the loss of optimization" begin
   Nx, Ny = 2, 3

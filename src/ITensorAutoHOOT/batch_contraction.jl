@@ -2,7 +2,7 @@ using AutoHOOT
 using ChainRulesCore
 
 using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork, AbstractTensor
+using ..ITensorNetworks: SubNetwork, AbstractTensor, abstract_network
 
 const ad = AutoHOOT.autodiff
 
@@ -84,4 +84,16 @@ function batch_tensor_contraction(
   trees::Vector{SubNetwork}, cache::NetworkCache, vars...; kwargs...
 )
   return batch_tensor_contraction(Executor(trees, cache), vars...; kwargs...)
+end
+
+function batch_tensor_contraction(
+  ::typeof(abstract_network),
+  tensortype,
+  networks::Vector{Vector{ITensor}},
+  vars...;
+  kwargs...,
+)
+  networks, vars = abstract_network(tensortype, networks, vars; kwargs...)
+  out = batch_tensor_contraction(Executor(networks), vars...; kwargs...)
+  return out
 end

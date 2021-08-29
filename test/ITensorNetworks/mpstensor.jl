@@ -38,17 +38,17 @@ end
   A = randomITensor(i, j)
   B = randomITensor(j, k)
   C = randomITensor(k, i)
-  mps_A = MPSTensor(MPS(A, inds(A)))
-  mps_B = MPSTensor(MPS(B, inds(B)))
-  mps_C = MPSTensor(MPS(C, inds(C)))
 
   function network(A)
-    tensor_network = [A, mps_B, mps_C]
+    mps_A = MPSTensor(A; cutoff=1e-15, maxdim=1000, method="general_mps")
+    mps_B = MPSTensor(B; cutoff=1e-15, maxdim=1000, method="general_mps")
+    mps_C = MPSTensor(C; cutoff=1e-15, maxdim=1000, method="general_mps")
+    tensor_network = [mps_A, mps_B, mps_C]
     out = itensorah.batch_tensor_contraction(
-      [tensor_network], A; cutoff=1e-15, maxdim=1000, method="general_mps"
+      [tensor_network], mps_A; cutoff=1e-15, maxdim=1000, method="general_mps"
     )
     return sum(out)[]
   end
-  grad_A = gradient(network, mps_A)
-  @test isapprox(ITensor(grad_A[1]), B * C)
+  grad_A = gradient(network, A)
+  @test isapprox(grad_A[1], B * C)
 end
