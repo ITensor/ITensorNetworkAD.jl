@@ -8,11 +8,11 @@ function ITensors.inds(tensor::MPSTensor)
   return siteinds(tensor.mps) == [nothing] ? () : noncommoninds(tensor.mps...)
 end
 
-function Base.:+(A::MPSTensor, B::MPSTensor)
+function Base.:+(A::MPSTensor, B::MPSTensor; kwargs...)
   if length(A.mps) == 1 && order(A.mps[1]) == 0
     return MPSTensor(MPS([ITensor(A[] + B[])]))
   else
-    return MPSTensor(A.mps + B.mps)
+    return MPSTensor(+(A.mps, B.mps; kwargs...))
   end
 end
 
