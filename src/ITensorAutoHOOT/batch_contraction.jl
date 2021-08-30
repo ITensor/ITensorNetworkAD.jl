@@ -87,11 +87,7 @@ function batch_tensor_contraction(
 end
 
 function batch_tensor_contraction(
-  ::typeof(abstract_network),
-  tensortype,
-  networks::Vector{Vector{ITensor}},
-  vars...;
-  kwargs...,
+  tensortype, networks::Vector{Vector{ITensor}}, vars...; kwargs...
 )
   networks, vars = abstract_network(tensortype, networks, vars; kwargs...)
   out = batch_tensor_contraction(Executor(networks), vars...; kwargs...)

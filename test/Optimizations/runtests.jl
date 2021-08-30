@@ -11,7 +11,7 @@ using ITensorNetworkAD.ITensorNetworks:
   broadcast_inner
 using ITensorNetworkAD.Optimizations:
   gradient_descent, backtracking_linesearch, loss_grad_wrap
-using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction, abstract_network
+using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 
 @testset "test MPSTensor" begin
   Nx, Ny = 3, 3
@@ -22,12 +22,10 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction, abstract_netwo
   H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
   H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
   params = Dict(:maxdim => 1000, :cutoff => 1e-15, :method => "general_mps")
-  loss_w_grad_mps = loss_grad_wrap(peps, H_line, abstract_network, MPSTensor; params...)
+  loss_w_grad_mps = loss_grad_wrap(peps, H_line, MPSTensor; params...)
   loss_w_grad = loss_grad_wrap(peps, H_line)
   loss_mps, grad_mps = loss_w_grad_mps(peps)
   loss, grad = loss_w_grad(peps)
-  print(loss_mps, loss)
-  print(grad_mps, grad)
   g_mps_nrm = broadcast_inner(grad_mps, grad_mps)
   g_nrm = broadcast_inner(grad, grad)
   @test isapprox(loss, loss_mps)
