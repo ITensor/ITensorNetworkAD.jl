@@ -16,6 +16,14 @@ function Base.:+(A::MPSTensor, B::MPSTensor; kwargs...)
   end
 end
 
+ITensors.sum(tensors::Vector{MPSTensor}; kwargs...) = ITensors.sum(tensors...; kwargs...)
+
+function ITensors.sum(t1::MPSTensor, t2::MPSTensor...; kwargs...)
+  return +(t1, sum(t2...; kwargs...); kwargs...)
+end
+
+ITensors.sum(t::MPSTensor; kwargs...) = t
+
 function Base.getindex(t::MPSTensor)
   @assert length(t.mps) == 1
   @assert order(t.mps[1]) == 0
