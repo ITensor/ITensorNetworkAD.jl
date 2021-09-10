@@ -4,8 +4,8 @@ using ITensors
 
 using ITensors: data
 
-include("MPSTensor/MPSTensor.jl")
 include("abstractTensor.jl")
+include("MPSTensor/MPSTensor.jl")
 include("subnetwork.jl")
 include("ITensors.jl")
 include("networks/lattices.jl")

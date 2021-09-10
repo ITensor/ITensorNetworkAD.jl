@@ -1,11 +1,11 @@
 using ITensors, ChainRulesCore
 
-AbstractTensor = Union{ITensor,MPSTensor}
+abstract type AbstractNetwork end
 
 """
 Transfer ITensor networks into networks with type tensortype
 """
-function AbstractTensors(tensortype, networks::Vector{Vector{ITensor}}; kwargs...)
+function abstract_network(tensortype, networks::Vector{Vector{ITensor}}; kwargs...)
   dict = Dict{ITensor,tensortype}()
   output_networks = Vector{Vector{tensortype}}()
   for network in networks
@@ -22,7 +22,7 @@ end
 
 function abstract_network(tensortype, networks::Vector{Vector{ITensor}}, vars; kwargs...)
   tensors = vcat([collect(vars)], networks)
-  abs_tensors = AbstractTensors(tensortype, tensors; kwargs...)
+  abs_tensors = abstract_network(tensortype, tensors; kwargs...)
   vars = abs_tensors[1]
   networks = abs_tensors[2:end]
   return networks, Tuple(vars)
@@ -38,3 +38,5 @@ function ChainRulesCore.rrule(
   end
   return abstract_network(tensortype, networks, vars; kwargs...), pullback
 end
+
+AbstractTensor = Union{ITensor,AbstractNetwork}

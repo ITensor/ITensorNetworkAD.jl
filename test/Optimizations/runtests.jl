@@ -7,7 +7,7 @@ using ITensorNetworkAD.ITensorNetworks:
   flatten,
   insert_projectors,
   split_network,
-  MPSTensor,
+  GeneralMPSTensor,
   broadcast_inner
 using ITensorNetworkAD.Optimizations:
   gradient_descent, backtracking_linesearch, loss_grad_wrap
@@ -21,8 +21,8 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
   randn!(peps)
   H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
   H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
-  params = Dict(:maxdim => 1000, :cutoff => 1e-15, :method => "general_mps")
-  loss_w_grad_mps = loss_grad_wrap(peps, H_line, MPSTensor; params...)
+  params = Dict(:maxdim => 1000, :cutoff => 1e-15)
+  loss_w_grad_mps = loss_grad_wrap(peps, H_line, GeneralMPSTensor; params...)
   loss_w_grad = loss_grad_wrap(peps, H_line)
   loss_mps, grad_mps = loss_w_grad_mps(peps)
   loss, grad = loss_w_grad(peps)
