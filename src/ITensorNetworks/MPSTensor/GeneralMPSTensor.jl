@@ -31,7 +31,7 @@ end
 """
 initialization methods
 """
-Base.isless(a::ITensors.Index, b::ITensors.Index) = a.id < b.id
+Base.isless(a::Index, b::Index) = id(a) < id(b) && plev(a) < plev(b) && tags(a) < tags(b)
 
 function GeneralMPSTensor(tensor::ITensor; cutoff, maxdim)
   mps_out = if size(tensor) == ()
