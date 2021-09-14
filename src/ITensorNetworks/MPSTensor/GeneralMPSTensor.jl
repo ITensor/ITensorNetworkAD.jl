@@ -31,7 +31,8 @@ end
 """
 initialization methods
 """
-Base.isless(a::Index, b::Index) = id(a) < id(b) && plev(a) < plev(b) && tags(a) < tags(b)
+# TODO: general tags are not comparable
+Base.isless(a::Index, b::Index) = id(a) < id(b) || (id(a) == id(b) && plev(a) < plev(b)) # && tags(a) < tags(b)
 
 function GeneralMPSTensor(tensor::ITensor; cutoff, maxdim)
   mps_out = if size(tensor) == ()
