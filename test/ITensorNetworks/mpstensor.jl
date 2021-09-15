@@ -1,6 +1,6 @@
 using ITensorNetworkAD
 using AutoHOOT, ITensors, Zygote
-using ITensorNetworkAD.ITensorNetworks: MPSTensor
+using ITensorNetworkAD.ITensorNetworks: GeneralMPSTensor
 
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
 
@@ -14,9 +14,9 @@ const itensorah = ITensorNetworkAD.ITensorAutoHOOT
   A = randomITensor(i, j, k)
   B = randomITensor(k, l, m)
   C = randomITensor(i, j, l, m)
-  mps_A = MPSTensor(MPS(A, inds(A)))
-  mps_B = MPSTensor(MPS(B, inds(B)))
-  mps_C = MPSTensor(MPS(C, inds(C)))
+  mps_A = GeneralMPSTensor(MPS(A, inds(A)))
+  mps_B = GeneralMPSTensor(MPS(B, inds(B)))
+  mps_C = GeneralMPSTensor(MPS(C, inds(C)))
 
   out = A * B
   network = [mps_A, mps_B]
@@ -36,15 +36,17 @@ end
   A = randomITensor(i, j)
   B = randomITensor(j, k)
   C = randomITensor(k, i)
-  mps_A = MPSTensor(MPS(A, inds(A)))
-  mps_B = MPSTensor(MPS(B, inds(B)))
-  mps_C = MPSTensor(MPS(C, inds(C)))
 
   function network(A)
-    tensor_network = [A, mps_B, mps_C]
-    out = itensorah.batch_tensor_contraction([tensor_network], A; cutoff=1e-15, maxdim=1000)
+    mps_A = GeneralMPSTensor(A; cutoff=1e-15, maxdim=1000)
+    mps_B = GeneralMPSTensor(B; cutoff=1e-15, maxdim=1000)
+    mps_C = GeneralMPSTensor(C; cutoff=1e-15, maxdim=1000)
+    tensor_network = [mps_A, mps_B, mps_C]
+    out = itensorah.batch_tensor_contraction(
+      [tensor_network], mps_A; cutoff=1e-15, maxdim=1000
+    )
     return sum(out)[]
   end
-  grad_A = gradient(network, mps_A)
-  @test isapprox(ITensor(grad_A[1]), B * C)
+  grad_A = gradient(network, A)
+  @test isapprox(grad_A[1], B * C)
 end
