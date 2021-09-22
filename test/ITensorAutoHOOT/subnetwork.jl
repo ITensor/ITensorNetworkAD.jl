@@ -1,5 +1,5 @@
 using ITensors, ITensorNetworkAD
-using ITensorNetworkAD.ITensorNetworks: SubNetwork, get_leaves
+using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, get_leaves
 
 @testset "test SubNetwork" begin
   i = Index(2, "i")

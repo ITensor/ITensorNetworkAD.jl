@@ -4,7 +4,6 @@ using Test
 @testset "ITensorNetworks.jl" begin
   for filename in [
     "lattice.jl",
-    "subnetwork.jl",
     "peps.jl",
     "models.jl",
     "mpstensor.jl",

@@ -1,9 +1,6 @@
 using AutoHOOT
 using ChainRulesCore
 
-using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork, AbstractTensor, abstract_network
-
 const ad = AutoHOOT.autodiff
 
 function construct_gradient!(net_sum::NetworkSum, innodes::Array, feed_dict::Dict)

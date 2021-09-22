@@ -1,8 +1,5 @@
 using ITensors, AutoHOOT
 
-using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork, AbstractTensor
-
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
 
