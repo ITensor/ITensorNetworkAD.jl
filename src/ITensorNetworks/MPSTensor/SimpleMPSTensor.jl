@@ -1,6 +1,9 @@
 using ChainRulesCore
 using ZygoteRules: @adjoint
 
+using ..ITensorAutoHOOT
+using ..ITensorAutoHOOT: AbstractNetwork
+
 struct SimpleMPSTensor <: AbstractNetwork
   mps::MPS
 end

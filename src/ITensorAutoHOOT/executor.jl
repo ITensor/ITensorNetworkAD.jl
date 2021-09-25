@@ -1,8 +1,5 @@
 using ChainRulesCore
 
-using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork, get_leaves, AbstractTensor
-
 struct Executor
   net_sums::Array{<:NetworkSum}
   feed_dict::Dict

@@ -1,3 +1,6 @@
+using ..ITensorAutoHOOT
+using ..ITensorAutoHOOT: SubNetwork, neighboring_tensors
+
 """Returns a tree structure for a line of tensors with projectors
 Parameters
 ----------

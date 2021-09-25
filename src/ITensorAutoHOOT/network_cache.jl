@@ -1,9 +1,6 @@
 using AutoHOOT
 using ChainRulesCore
 
-using ..ITensorNetworks
-using ..ITensorNetworks: SubNetwork, get_leaves, AbstractTensor
-
 const go = AutoHOOT.graphops
 
 # Used to cache the tensor network expressions
