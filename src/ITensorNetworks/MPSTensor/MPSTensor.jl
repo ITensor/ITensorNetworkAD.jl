@@ -6,7 +6,7 @@ include("GeneralMPSTensor.jl")
 MPSTensor = Union{GeneralMPSTensor,SimpleMPSTensor}
 
 function ITensors.inds(tensor::MPSTensor)
-  return siteinds(tensor.mps) == [nothing] ? () : noncommoninds(tensor.mps...)
+  return siteinds(tensor.mps) == [nothing] ? () : tuple(noncommoninds(tensor.mps...)...)
 end
 
 ITensors.sum(tensors::Vector{<:MPSTensor}; kwargs...) = ITensors.sum(tensors...; kwargs...)

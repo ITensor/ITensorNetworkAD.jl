@@ -5,6 +5,7 @@ using ITensors
 using ITensors: data
 
 include("MPSTensor/MPSTensor.jl")
+include("TreeTensor/TreeTensor.jl")
 include("ITensors.jl")
 include("networks/lattices.jl")
 include("networks/inds_network.jl")
