@@ -14,14 +14,17 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   connect_inds = intersect(inds(t1), inds(t2))
   if length(connect_inds) <= 1
     return TreeTensor(t1.tensors..., t2.tensors...)
+  end
+  network = (t1.tensors..., t2.tensors...)
+  if length(noncommoninds(network...)) <= 1
+    return TreeTensor(contract(network...))
+  end
+  # TODO: currently it only transfer the tree to ITensor, do the contraction, then trasferring the output to an MPS
+  out = contract(network...)
+  if size(out) == ()
+    return TreeTensor(out)
   else
-    # TODO: currently it only transfer the tree to ITensor, do the contraction, then trasferring the output to an MPS
-    out = contract(t1.tensors..., t2.tensors...)
-    if size(out) == ()
-      return TreeTensor(out)
-    else
-      mps = MPS(out, inds(out); cutoff=cutoff, maxdim=maxdim)
-      return TreeTensor(mps...)
-    end
+    mps = MPS(out, inds(out); cutoff=cutoff, maxdim=maxdim)
+    return TreeTensor(mps...)
   end
 end
