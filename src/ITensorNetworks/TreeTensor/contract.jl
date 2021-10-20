@@ -21,14 +21,11 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   if length(noncommoninds(network...)) <= 1
     return TreeTensor(contract(network...))
   end
-  # TODO: currently it only transfer the tree to ITensor, do the contraction, then trasferring the output to an MPS
+  # TODO: add caching here
   uncontract_inds = noncommoninds(network...)
-  print(uncontract_inds)
   contraction_path = generate_optimal_tree(network)
   inds_btree = uncontract_inds_binary_tree(contraction_path, uncontract_inds)
   tree = tree_approximation(network, inds_btree; cutoff=cutoff, maxdim=maxdim)
-  # out = contract(network...)
-  # mps = MPS(out, inds(out); cutoff=cutoff, maxdim=maxdim)
   return TreeTensor(tree...)
 end
 
