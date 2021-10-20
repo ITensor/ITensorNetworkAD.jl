@@ -133,10 +133,18 @@ outneighbors(tn, n) = filterneighbors(<, tn, n)
 
 function mapinds(f, ::typeof(linkinds), tn)
   tn′ = copy(tn)
+  inds_dict = Dict()
   for n in keys(tn)
     for nn in neighbors(tn, n)
       commonindsₙ = commoninds(tn[n], tn[nn])
-      tn′[n] = replaceinds(tn′[n], commonindsₙ => f(commonindsₙ))
+      newinds = []
+      for i in commonindsₙ
+        if !haskey(inds_dict, i)
+          inds_dict[i] = f(i)
+        end
+        newinds = vcat(newinds, [inds_dict[i]])
+      end
+      tn′[n] = replaceinds(tn′[n], commonindsₙ => newinds)
     end
   end
   return tn′
@@ -146,12 +154,43 @@ function ITensors.prime(::typeof(linkinds), tn, args...)
   return mapinds(x -> prime(x, args...), linkinds, tn)
 end
 
+function ITensors.sim(::typeof(linkinds), tn, args...)
+  return mapinds(x -> sim(x, args...), linkinds, tn)
+end
+
 function ITensors.addtags(::typeof(linkinds), tn, args...)
   return mapinds(x -> addtags(x, args...), linkinds, tn)
 end
 
 function ITensors.removetags(::typeof(linkinds), tn, args...)
   return mapinds(x -> removetags(x, args...), linkinds, tn)
+end
+
+function ITensors.prime(indices::Array{<:Index,1}, network::Array{ITensor}, n::Integer=1)
+  function primeinds(tensor)
+    prime_inds = [ind for ind in inds(tensor) if ind in indices]
+    if (length(prime_inds) == 0)
+      return tensor
+    end
+    return replaceinds(tensor, prime_inds => prime(prime_inds, n))
+  end
+  return map(x -> primeinds(x), network)
+end
+
+function ITensors.sim(indices::Array{<:Index,1}, network::Array{ITensor}, sim_dict::Dict)
+  function siminds(tensor)
+    sim_inds = [ind for ind in inds(tensor) if ind in indices]
+    if (length(sim_inds) == 0)
+      return tensor
+    end
+    outinds = map(i -> sim_dict[i], sim_inds)
+    return replaceinds(tensor, sim_inds => outinds)
+  end
+  return map(x -> siminds(x), network)
+end
+
+function ITensors.commoninds(n1::Array{ITensor}, n2::Array{ITensor})
+  return mapreduce(a -> commoninds(a...), vcat, zip(n1, n2))
 end
 
 # Compute the sets of combiners that combine the link indices
