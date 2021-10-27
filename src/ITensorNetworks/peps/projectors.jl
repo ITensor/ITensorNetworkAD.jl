@@ -48,13 +48,13 @@ function inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{ITensor}
 end
 
 function inner_network(
-  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}, ::typeof(tree)
+  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}, ::typeof(tree_w_projectors)
 )
   Ny, Nx = size(peps.data)
   function get_tree(i)
     line_tensors = vcat(peps.data[i, :], peps_prime.data[i, :])
     neighbor_projectors = neighboring_tensors(SubNetwork(line_tensors), projectors)
-    return tree(peps.data[i, :], peps_prime.data[i, :], neighbor_projectors)
+    return tree_w_projectors(peps.data[i, :], peps_prime.data[i, :], neighbor_projectors)
   end
   subnetworks = [get_tree(i) for i in 1:Ny]
   return SubNetwork(subnetworks)
@@ -67,18 +67,20 @@ function inner_network(
   projectors::Vector{<:ITensor},
   mpo::MPO,
   coordinate::Tuple{<:Integer,Colon},
-  ::typeof(tree),
+  ::typeof(tree_w_projectors),
 )
   Ny, Nx = size(peps.data)
   function get_tree(i)
     if i == coordinate[1]
       line_tensors = vcat(peps.data[i, :], peps_prime_ham.data[i, :], mpo.data)
       neighbor_projectors = neighboring_tensors(SubNetwork(line_tensors), projectors)
-      return tree(peps.data[i, :], peps_prime_ham.data[i, :], mpo.data, neighbor_projectors)
+      return tree_w_projectors(
+        peps.data[i, :], peps_prime_ham.data[i, :], mpo.data, neighbor_projectors
+      )
     else
       line_tensors = vcat(peps.data[i, :], peps_prime.data[i, :])
       neighbor_projectors = neighboring_tensors(SubNetwork(line_tensors), projectors)
-      return tree(peps.data[i, :], peps_prime.data[i, :], neighbor_projectors)
+      return tree_w_projectors(peps.data[i, :], peps_prime.data[i, :], neighbor_projectors)
     end
   end
   subnetworks = [get_tree(i) for i in 1:Ny]
@@ -92,18 +94,20 @@ function inner_network(
   projectors::Vector{<:ITensor},
   mpo::MPO,
   coordinate::Tuple{Colon,<:Integer},
-  ::typeof(tree),
+  ::typeof(tree_w_projectors),
 )
   Ny, Nx = size(peps.data)
   function get_tree(i)
     if i == coordinate[2]
       line_tensors = vcat(peps.data[:, i], peps_prime_ham.data[:, i], mpo.data)
       neighbor_projectors = neighboring_tensors(SubNetwork(line_tensors), projectors)
-      return tree(peps.data[:, i], peps_prime_ham.data[:, i], mpo.data, neighbor_projectors)
+      return tree_w_projectors(
+        peps.data[:, i], peps_prime_ham.data[:, i], mpo.data, neighbor_projectors
+      )
     else
       line_tensors = vcat(peps.data[:, i], peps_prime.data[:, i])
       neighbor_projectors = neighboring_tensors(SubNetwork(line_tensors), projectors)
-      return tree(peps.data[:, i], peps_prime.data[:, i], neighbor_projectors)
+      return tree_w_projectors(peps.data[:, i], peps_prime.data[:, i], neighbor_projectors)
     end
   end
   subnetworks = [get_tree(i) for i in 1:Nx]
@@ -137,11 +141,13 @@ function inner_networks(
   peps_prime_ham::PEPS,
   projectors::Vector{Vector{ITensor}},
   Hs::Vector{Models.LineMPO},
-  ::typeof(tree),
+  ::typeof(tree_w_projectors),
 )
   @assert length(projectors) == length(Hs)
   function generate_each_network(projector, H)
-    return inner_network(peps, peps_prime, peps_prime_ham, projector, H.mpo, H.coord, tree)
+    return inner_network(
+      peps, peps_prime, peps_prime_ham, projector, H.mpo, H.coord, tree_w_projectors
+    )
   end
   return [generate_each_network(projector, H) for (projector, H) in zip(projectors, Hs)]
 end

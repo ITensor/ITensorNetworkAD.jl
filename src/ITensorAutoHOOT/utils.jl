@@ -1,5 +1,3 @@
-using ITensors, AutoHOOT
-
 const ad = AutoHOOT.autodiff
 const go = AutoHOOT.graphops
 

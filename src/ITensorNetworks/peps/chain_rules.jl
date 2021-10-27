@@ -71,8 +71,10 @@ end
 @non_differentiable inner_network(peps::PEPS, peps_prime::PEPS, projectors::Vector{ITensor})
 
 @non_differentiable inner_network(
-  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}, ::typeof(tree)
+  peps::PEPS, peps_prime::PEPS, projectors::Vector{<:ITensor}, ::typeof(tree_w_projectors)
 )
+
+@non_differentiable inner_network(peps::PEPS, peps_prime::PEPS, ::typeof(tree))
 
 # gradient of this function returns nothing.
 @non_differentiable inner_networks(
@@ -96,6 +98,14 @@ end
   peps_prime::PEPS,
   peps_prime_ham::PEPS,
   projectors::Vector{Vector{ITensor}},
+  Hs::Vector{Models.LineMPO},
+  ::typeof(tree_w_projectors),
+)
+
+@non_differentiable inner_networks(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
   Hs::Vector{Models.LineMPO},
   ::typeof(tree),
 )

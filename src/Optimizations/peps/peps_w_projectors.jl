@@ -11,7 +11,7 @@ using ..ITensorNetworks:
   split_network,
   rayleigh_quotient,
   Models,
-  tree
+  tree_w_projectors
 
 function loss_grad_wrap(
   peps::PEPS,
@@ -41,7 +41,12 @@ function loss_grad_wrap(
     peps_ket_split_rot_ham = prime(sites, peps_ket_split_rot)
     # generate network
     network_list_row = inner_networks(
-      peps_bra_split, peps_ket_split, peps_ket_split_ham, projectors_row, Hs_row, tree
+      peps_bra_split,
+      peps_ket_split,
+      peps_ket_split_ham,
+      projectors_row,
+      Hs_row,
+      tree_w_projectors,
     )
     network_list_column = inner_networks(
       peps_bra_split_rot,
@@ -49,9 +54,11 @@ function loss_grad_wrap(
       peps_ket_split_rot_ham,
       projectors_column,
       Hs_column,
-      tree,
+      tree_w_projectors,
     )
-    network_inner = inner_network(peps_bra_split, peps_ket_split, projectors_row[1], tree)
+    network_inner = inner_network(
+      peps_bra_split, peps_ket_split, projectors_row[1], tree_w_projectors
+    )
     network_list = vcat(network_list_row, network_list_column, [network_inner])
     variables = flatten([
       peps_bra_split,

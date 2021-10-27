@@ -1,5 +1,3 @@
-using ChainRulesCore
-
 struct Executor
   net_sums::Array{<:NetworkSum}
   feed_dict::Dict
