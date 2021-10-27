@@ -18,6 +18,8 @@ get_leaves(tensor::AbstractTensor) = tensor
 
 ITensors.inds(node::SubNetwork) = noncommoninds(get_leaves(node)...)
 
+ITensors.noncommoninds(node::Union{AbstractTensor,SubNetwork}) = inds(node)
+
 function ITensors.noncommoninds(nodes::Union{AbstractTensor,SubNetwork}...)
   return symdiff(map(inds, nodes)...)
 end

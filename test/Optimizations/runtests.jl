@@ -8,6 +8,7 @@ using ITensorNetworkAD.ITensorNetworks:
   insert_projectors,
   split_network,
   GeneralMPSTensor,
+  TreeTensor,
   broadcast_inner
 using ITensorNetworkAD.Optimizations:
   gradient_descent, backtracking_linesearch, loss_grad_wrap
@@ -30,6 +31,25 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
   g_nrm = broadcast_inner(grad, grad)
   @test isapprox(loss, loss_mps)
   @test isapprox(g_nrm, g_mps_nrm)
+end
+
+@testset "test TreeTensor" begin
+  Nx, Ny = 3, 3
+  num_sweeps = 5
+  sites = siteinds("S=1/2", Ny, Nx)
+  peps = PEPS(sites; linkdims=2)
+  randn!(peps)
+  H = Models.mpo(Models.Model("tfim"), sites; h=1.0)
+  H_line = Models.lineham(Models.Model("tfim"), sites; h=1.0)
+  params = Dict(:maxdim => 1000, :cutoff => 1e-15)
+  loss_w_grad_tree = loss_grad_wrap(peps, H_line, TreeTensor; params...)
+  loss_w_grad = loss_grad_wrap(peps, H_line)
+  loss_tree, grad_tree = loss_w_grad_tree(peps)
+  loss, grad = loss_w_grad(peps)
+  g_tree_nrm = broadcast_inner(grad_tree, grad_tree)
+  g_nrm = broadcast_inner(grad, grad)
+  @test isapprox(loss, loss_tree)
+  @test isapprox(g_nrm, g_tree_nrm)
 end
 
 @testset "test the loss of optimization" begin

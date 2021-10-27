@@ -7,6 +7,7 @@ using Test
     "peps.jl",
     "models.jl",
     "mpstensor.jl",
+    "treetensor.jl",
     "itensor_network.jl",
     "projectors.jl",
   ]
