@@ -24,13 +24,13 @@ function PEPS(::Type{T}, sites::Matrix{<:Index}; linkdims::Integer=1) where {T<:
   lh = Matrix{Index}(undef, Ny, Nx - 1)
   for ii in 1:(Nx - 1)
     for jj in 1:(Ny)
-      lh[jj, ii] = Index(linkdims, "Lh,$jj,$ii")
+      lh[jj, ii] = Index(linkdims, "Lh-$jj-$ii")
     end
   end
   lv = Matrix{Index}(undef, Ny - 1, Nx)
   for ii in 1:(Nx)
     for jj in 1:(Ny - 1)
-      lv[jj, ii] = Index(linkdims, "Lv,$jj,$ii")
+      lv[jj, ii] = Index(linkdims, "Lv-$jj-$ii")
     end
   end
 
@@ -84,11 +84,7 @@ ITensors.prime(P::PEPS, n::Integer=1) = PEPS(map(x -> prime(x, n), P.data))
 
 # prime a PEPS with specified indices
 function ITensors.prime(indices::Array{<:Index,1}, P::PEPS, n::Integer=1)
-  function primeinds(tensor)
-    prime_inds = [ind for ind in inds(tensor) if ind in indices]
-    return replaceinds(tensor, prime_inds => prime(prime_inds, n))
-  end
-  return PEPS(map(x -> primeinds(x), P.data))
+  return PEPS(prime(indices, P.data, n))
 end
 
 # prime linkinds of a PEPS
@@ -109,7 +105,7 @@ ITensors.data(P::PEPS) = P.data
 split_network(P::PEPS, rotation=false) = PEPS(split_network(data(P); rotation=rotation))
 
 function ITensors.commoninds(p1::PEPS, p2::PEPS)
-  return mapreduce(a -> commoninds(a...), vcat, zip(p1.data, p2.data))
+  return commoninds(p1.data, p2.data)
 end
 
 function flatten(v::Array{<:PEPS})

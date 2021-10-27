@@ -1,6 +1,7 @@
 using ITensorNetworkAD
 using AutoHOOT, ITensors, Zygote
-using ITensorNetworkAD.ITensorNetworks: TreeTensor
+using ITensorNetworkAD.ITensorNetworks:
+  TreeTensor, uncontract_inds_binary_tree, tree_approximation
 
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
 
@@ -49,4 +50,24 @@ end
   end
   grad_A = gradient(network, A)
   @test isapprox(grad_A[1], B * C)
+end
+
+@testset "test uncontract_inds_binary_tree" begin
+  i = Index(2, "i")
+  j = Index(2, "j")
+  k = Index(2, "k")
+  l = Index(2, "l")
+  m = Index(2, "m")
+  A = randomITensor(i)
+  B = randomITensor(j)
+  C = randomITensor(k)
+  D = randomITensor(l)
+  E = randomITensor(m)
+
+  path = [[[A, B], [C, D]], E]
+  uncontract_inds = [i, j, k, l, m]
+  btree = uncontract_inds_binary_tree(path, uncontract_inds)
+  @test btree == [[[[i], [j]], [[k], [l]]], [m]]
+  out = tree_approximation([A, B, C, D, E], btree)
+  @test isapprox(contract(out), A * B * C * D * E)
 end
