@@ -1,6 +1,3 @@
-using AutoHOOT
-using ChainRulesCore
-
 const ad = AutoHOOT.autodiff
 
 function construct_gradient!(net_sum::NetworkSum, innodes::Array, feed_dict::Dict)
@@ -88,5 +85,11 @@ function batch_tensor_contraction(
 )
   networks, vars = abstract_network(tensortype, networks, vars; kwargs...)
   out = batch_tensor_contraction(Executor(networks), vars...; kwargs...)
+  return out
+end
+
+function batch_tensor_contraction(tensortype, trees::Vector{SubNetwork}, vars...; kwargs...)
+  trees, vars = abstract_network(tensortype, trees, vars; kwargs...)
+  out = batch_tensor_contraction(Executor(trees), vars...; kwargs...)
   return out
 end

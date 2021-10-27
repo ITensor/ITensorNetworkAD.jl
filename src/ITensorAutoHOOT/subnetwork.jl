@@ -1,5 +1,3 @@
-using ChainRulesCore
-
 struct SubNetwork
   inputs::Vector{Union{SubNetwork,AbstractTensor}}
 end

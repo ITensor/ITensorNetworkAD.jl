@@ -1,6 +1,3 @@
-using AutoHOOT
-using ChainRulesCore
-
 const go = AutoHOOT.graphops
 
 # Used to cache the tensor network expressions

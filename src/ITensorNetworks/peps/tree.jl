@@ -1,6 +1,37 @@
 using ..ITensorAutoHOOT
 using ..ITensorAutoHOOT: SubNetwork, neighboring_tensors
 
+function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, mpo::Vector)
+  @assert length(sub_peps_bra) == length(sub_peps_ket)
+  @assert length(sub_peps_bra) == length(mpo)
+  center = div(length(sub_peps_bra), 2)
+  len = length(sub_peps_bra)
+  front_tree = SubNetwork(sub_peps_bra[1], sub_peps_ket[1], mpo[1])
+  for i in 2:center
+    front_tree = SubNetwork(sub_peps_bra[i], sub_peps_ket[i], mpo[i], front_tree)
+  end
+  back_tree = SubNetwork(sub_peps_bra[len], sub_peps_ket[len], mpo[len])
+  for i in (len - 1):-1:(center + 1)
+    back_tree = SubNetwork(sub_peps_bra[i], sub_peps_ket[i], mpo[i], back_tree)
+  end
+  return SubNetwork(front_tree, back_tree)
+end
+
+function tree(sub_peps_bra::Vector, sub_peps_ket::Vector)
+  @assert length(sub_peps_bra) == length(sub_peps_ket)
+  center = div(length(sub_peps_bra), 2)
+  len = length(sub_peps_bra)
+  front_tree = SubNetwork(sub_peps_bra[1], sub_peps_ket[1])
+  for i in 2:center
+    front_tree = SubNetwork(sub_peps_bra[i], sub_peps_ket[i], front_tree)
+  end
+  back_tree = SubNetwork(sub_peps_bra[len], sub_peps_ket[len])
+  for i in (len - 1):-1:(center + 1)
+    back_tree = SubNetwork(sub_peps_bra[i], sub_peps_ket[i], back_tree)
+  end
+  return SubNetwork(front_tree, back_tree)
+end
+
 """Returns a tree structure for a line of tensors with projectors
 Parameters
 ----------
@@ -22,7 +53,9 @@ here line_size=5, center_index=3, si represents the list of tensors returned by 
 projectors are [p1, p2, p3, p4].
 Returns two trees: [[s1, p1], s2, p2] and [[s5, p4], s4, p3]
 """
-function tree(line_size, center_index, site_tensors, projectors::Vector{ITensor})
+function tree_w_projectors(
+  line_size, center_index, site_tensors, projectors::Vector{ITensor}
+)
   front_tree, back_tree = nothing, nothing
   for i in 1:(center_index - 1)
     connect_projectors = neighboring_tensors(SubNetwork(site_tensors(i)), projectors)
@@ -45,7 +78,9 @@ function tree(line_size, center_index, site_tensors, projectors::Vector{ITensor}
   return front_tree, back_tree
 end
 
-function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITensor})
+function tree_w_projectors(
+  sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITensor}
+)
   out_inds = inds(SubNetwork(vcat(sub_peps_bra, sub_peps_ket, projectors)))
   is_neighbor(t) = length(intersect(out_inds, inds(t))) > 0
   center_index = [i for (i, t) in enumerate(sub_peps_bra) if is_neighbor(t)]
@@ -53,7 +88,7 @@ function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITe
   center_index = center_index[1]
   @assert is_neighbor(sub_peps_ket[center_index])
   site_tensors(i) = [sub_peps_bra[i], sub_peps_ket[i]]
-  front_tree, back_tree = tree(
+  front_tree, back_tree = tree_w_projectors(
     length(sub_peps_bra), center_index, site_tensors, projectors::Vector{ITensor}
   )
   return SubNetwork([
@@ -61,7 +96,7 @@ function tree(sub_peps_bra::Vector, sub_peps_ket::Vector, projectors::Vector{ITe
   ])
 end
 
-function tree(
+function tree_w_projectors(
   sub_peps_bra::Vector, sub_peps_ket::Vector, mpo::Vector, projectors::Vector{ITensor}
 )
   out_inds = inds(SubNetwork(vcat(sub_peps_bra, sub_peps_ket, mpo, projectors)))
@@ -71,7 +106,7 @@ function tree(
   center_index = center_index[1]
   @assert is_neighbor(sub_peps_ket[center_index])
   site_tensors(i) = [sub_peps_bra[i], sub_peps_ket[i], mpo[i]]
-  front_tree, back_tree = tree(
+  front_tree, back_tree = tree_w_projectors(
     length(sub_peps_bra), center_index, site_tensors, projectors::Vector{ITensor}
   )
   return SubNetwork([

@@ -56,3 +56,65 @@ function inner_networks(peps::PEPS, peps_prime::PEPS, peps_prime_ham::PEPS, Hs::
   end
   return network_list
 end
+
+function inner_network(peps::PEPS, peps_prime::PEPS, ::typeof(tree))
+  Ny, Nx = size(peps.data)
+  function get_tree(i)
+    return tree(peps.data[i, :], peps_prime.data[i, :])
+  end
+  subnetworks = [get_tree(i) for i in 1:Ny]
+  return SubNetwork(subnetworks)
+end
+
+function inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  mpo::MPO,
+  coordinate::Tuple{<:Integer,Colon},
+  ::typeof(tree),
+)
+  Ny, Nx = size(peps.data)
+  function get_tree(i)
+    if i == coordinate[1]
+      return tree(peps.data[i, :], peps_prime_ham.data[i, :], mpo.data)
+    else
+      return tree(peps.data[i, :], peps_prime.data[i, :])
+    end
+  end
+  subnetworks = [get_tree(i) for i in 1:Ny]
+  return SubNetwork(subnetworks)
+end
+
+function inner_network(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  mpo::MPO,
+  coordinate::Tuple{Colon,<:Integer},
+  ::typeof(tree),
+)
+  Ny, Nx = size(peps.data)
+  function get_tree(i)
+    if i == coordinate[2]
+      return tree(peps.data[:, i], peps_prime_ham.data[:, i], mpo.data)
+    else
+      return tree(peps.data[:, i], peps_prime.data[:, i])
+    end
+  end
+  subnetworks = [get_tree(i) for i in 1:Nx]
+  return SubNetwork(subnetworks)
+end
+
+function inner_networks(
+  peps::PEPS,
+  peps_prime::PEPS,
+  peps_prime_ham::PEPS,
+  Hs::Vector{Models.LineMPO},
+  ::typeof(tree),
+)
+  function generate_each_network(H)
+    return inner_network(peps, peps_prime, peps_prime_ham, H.mpo, H.coord, tree)
+  end
+  return [generate_each_network(H) for H in Hs]
+end

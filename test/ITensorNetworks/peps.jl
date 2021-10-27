@@ -10,7 +10,7 @@ using ITensorNetworkAD.ITensorNetworks:
   insert_projectors,
   split_network,
   inner_networks,
-  tree,
+  tree_w_projectors,
   get_leaves
 using ITensorNetworkAD.ITensorAutoHOOT:
   generate_optimal_tree, batch_tensor_contraction, Executor
@@ -174,7 +174,7 @@ end
   peps_ket_split_rot_ham = prime(sites, peps_ket_split_rot)
 
   projectors = projectors_row[1]
-  peps_tree = inner_network(peps_bra_split, peps_ket_split, projectors, tree)
+  peps_tree = inner_network(peps_bra_split, peps_ket_split, projectors, tree_w_projectors)
   leaves = get_leaves(peps_tree)
   @test length(leaves) == 2 * Nx * Ny + length(projectors)
   executor = Executor([peps_tree])
@@ -187,7 +187,7 @@ end
       peps_ket_split_ham,
       [projectors_row[i]],
       [H_row[i]],
-      tree,
+      tree_w_projectors,
     )[1]
     leaves = get_leaves(peps_tree)
     @test length(leaves) == 2 * Nx * Ny + length(projectors_row[i]) + Nx
@@ -202,7 +202,7 @@ end
       peps_ket_split_rot_ham,
       [projectors_column[i]],
       [H_column[i]],
-      tree,
+      tree_w_projectors,
     )[1]
     leaves = get_leaves(peps_tree)
     @test length(leaves) == 2 * Nx * Ny + length(projectors_column[i]) + Ny
