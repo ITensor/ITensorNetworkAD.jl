@@ -1,7 +1,7 @@
 using ITensorNetworkAD
 using AutoHOOT, ITensors, Zygote
 using ITensorNetworkAD.ITensorNetworks:
-  TreeTensor, uncontract_inds_binary_tree, tree_approximation
+  TreeTensor, uncontract_inds_binary_tree, tree_approximation, mincut_inds_binary_tree
 using ITensorNetworkAD.ITensorNetworks: inds_network, project_boundary, Models
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
@@ -94,7 +94,7 @@ end
   tsr_nrmsquare = (tsr_true * tsr_true)[1]
   @test isapprox(tsr_true, ITensor(out2[1]))
 
-  maxdims = [8]
+  maxdims = [2, 4, 6, 8]
   for dim in maxdims
     out = contract(MPO(A), MPS(x); cutoff=cutoff, maxdim=dim)
     out2 = batch_tensor_contraction(
@@ -106,4 +106,19 @@ end
     error2 = sqrt((residual2 * residual2)[1] / tsr_nrmsquare)
     print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
   end
+end
+
+@testset "test mincut_inds_binary_tree" begin
+  i = Index(2, "i")
+  j = Index(3, "j")
+  k = Index(2, "k")
+  l = Index(4, "l")
+  m = Index(5, "m")
+
+  T = randomITensor(i, j, k, l, m)
+  M = MPS(T, (i, j, k, l, m); cutoff=1e-5, maxdim=5)
+  network = M[:]
+
+  out = mincut_inds_binary_tree(network, [i, j, k, l, m])
+  @test length(out) == 2
 end

@@ -23,8 +23,7 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   end
   # TODO: add caching here
   uncontract_inds = noncommoninds(network...)
-  contraction_path = generate_optimal_tree(network)
-  inds_btree = uncontract_inds_binary_tree(contraction_path, uncontract_inds)
+  inds_btree = mincut_inds_binary_tree(network, uncontract_inds)
   tree = tree_approximation(network, inds_btree; cutoff=cutoff, maxdim=maxdim)
   return TreeTensor(tree...)
 end

@@ -59,4 +59,5 @@ end
 
 ITensors.sum(t::TreeTensor; kwargs...) = t
 
+include("mincut_tree.jl")
 include("contract.jl")

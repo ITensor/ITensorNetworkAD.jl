@@ -2,7 +2,7 @@
 
 using ITensors
 
-using ITensors: data
+using ITensors: data, contract
 
 include("ITensors.jl")
 include("networks/lattices.jl")
