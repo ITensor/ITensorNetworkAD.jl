@@ -71,7 +71,7 @@ end
   btree = uncontract_inds_binary_tree(path, uncontract_inds)
   @test btree == [[[[i], [j]], [[k], [l]]], [m]]
   out = tree_approximation([A, B, C, D, E], btree)
-  @test isapprox(ITensor(out), A * B * C * D * E)
+  @test isapprox(contract(out), A * B * C * D * E)
 end
 
 @testset "test MPS times MPO" begin
