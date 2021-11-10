@@ -25,7 +25,9 @@ end
 
 function abstract_network(tensortype, networks::Vector{Vector{ITensor}}, vars; kwargs...)
   dict = Dict{ITensor,tensortype}()
-  vars = abstract_network!(tensortype, collect(vars), dict; kwargs...)
+  if length(vars) != 0
+    vars = abstract_network!(tensortype, collect(vars), dict; kwargs...)
+  end
   networks = Vector{Vector{tensortype}}([
     abstract_network!(tensortype, n, dict; kwargs...) for n in networks
   ])
@@ -45,7 +47,9 @@ end
 
 function abstract_network(tensortype, trees::Vector{SubNetwork}, vars; kwargs...)
   dict = Dict()
-  vars = abstract_network!(tensortype, collect(vars), dict; kwargs...)
+  if length(vars) != 0
+    vars = abstract_network!(tensortype, collect(vars), dict; kwargs...)
+  end
   trees = Vector{SubNetwork}([
     abstract_network!(tensortype, t, dict; kwargs...) for t in trees
   ])

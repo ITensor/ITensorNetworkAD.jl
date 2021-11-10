@@ -8,6 +8,14 @@ struct TreeTensor <: AbstractNetwork
   tensors::Vector{ITensor}
 end
 
+function Base.show(io::IO, tree::TreeTensor)
+  out_str = "\n"
+  for (i, t) in enumerate(tree.tensors)
+    out_str = out_str * "[" * string(i) * "] " * string(inds(t)) * "\n"
+  end
+  return print(io, out_str)
+end
+
 TreeTensor(tensors::ITensor...; kwargs...) = TreeTensor(collect(tensors))
 
 @adjoint function TreeTensor(tensor::ITensor)
@@ -51,4 +59,5 @@ end
 
 ITensors.sum(t::TreeTensor; kwargs...) = t
 
+include("mincut_tree.jl")
 include("contract.jl")
