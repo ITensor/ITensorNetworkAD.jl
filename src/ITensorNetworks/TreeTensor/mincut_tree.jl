@@ -2,9 +2,10 @@ using Graphs, GraphsFlows
 
 function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vector)
   edge_dict = Dict()
+  # only go over contracted inds
   contract_edges = []
   for (i, t) in enumerate(network)
-    for ind in inds(t)
+    for ind in setdiff(inds(t), uncontract_inds)
       if !haskey(edge_dict, ind)
         edge_dict[ind] = (i, log2(space(ind)))
       else
@@ -23,7 +24,19 @@ function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vect
     capacity_matrix[u, v] = f
     capacity_matrix[v, u] = f
   end
-  return mincut_inds_binary_tree(graph, capacity_matrix, edge_dict, uncontract_inds)
+  # update uncontract inds
+  grouped_uncontracted_inds = []
+  for (i, t) in enumerate(network)
+    ucinds = intersect(inds(t), uncontract_inds)
+    if length(ucinds) == 0
+      continue
+    end
+    push!(grouped_uncontracted_inds, ucinds)
+    edge_dict[ucinds] = (i, prod(map(x -> log2(space(x)), ucinds)))
+  end
+  return mincut_inds_binary_tree(
+    graph, capacity_matrix, edge_dict, grouped_uncontracted_inds
+  )
 end
 
 function mincut_inds_binary_tree(

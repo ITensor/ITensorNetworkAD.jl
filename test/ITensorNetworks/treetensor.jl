@@ -122,3 +122,16 @@ end
   out = mincut_inds_binary_tree(network, [i, j, k, l, m])
   @test length(out) == 2
 end
+
+@testset "test mincut_inds_binary_tree2" begin
+  i = Index(2, "i")
+  j = Index(2, "j")
+  k = Index(2, "k")
+  l = Index(2, "l")
+  m = Index(2, "m")
+  A = randomITensor(i, m)
+  B = randomITensor(j, k, l)
+
+  out = mincut_inds_binary_tree([A, B], [i, j, k, l, m])
+  @test out == [[i, m], [j, k, l]]
+end
