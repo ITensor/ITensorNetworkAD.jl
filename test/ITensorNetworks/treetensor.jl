@@ -77,7 +77,7 @@ end
 @testset "test MPS times MPO" begin
   N = (10, 3)
   linkdim = 3
-  cutoff = 1e-5
+  cutoff = 1e-15
   tn_inds = inds_network(N...; linkdims=linkdim)
   tn = map(inds -> randomITensor(inds...), tn_inds)
   state = 1
@@ -121,4 +121,55 @@ end
 
   out = mincut_inds_binary_tree(network, [i, j, k, l, m])
   @test length(out) == 2
+end
+
+@testset "test mincut_inds_binary_tree2" begin
+  i = Index(2, "i")
+  j = Index(2, "j")
+  k = Index(2, "k")
+  l = Index(2, "l")
+  m = Index(2, "m")
+  A = randomITensor(i, m)
+  B = randomITensor(j, k, l)
+
+  out = mincut_inds_binary_tree([A, B], [i, j, k, l, m])
+  @test out == [[i, m], [j, k, l]]
+end
+
+@testset "test PEPS" begin
+  N = (8, 8) #(12, 12)
+  linkdim = 2
+  cutoff = 1e-15
+  tn_inds = inds_network(N...; linkdims=linkdim)
+  tn = map(inds -> randomITensor(inds...), tn_inds)
+  state = 1
+  tn = project_boundary(tn, state)
+
+  function get_contracted_peps(maxdim)
+    x = tn[:, 1]
+    for i in 2:(N[2] - 1)
+      A = tn[:, i]
+      x = contract(MPO(A), MPS(x); cutoff=cutoff, maxdim=maxdim)[:]
+    end
+    out = contract(x..., tn[:, N[2]]...)
+    network = SubNetwork(tn[:, 1])
+    for i in 2:(N[2])
+      network = SubNetwork(network, SubNetwork(tn[:, i]))
+    end
+    out2 = batch_tensor_contraction(TreeTensor, [network]; cutoff=cutoff, maxdim=maxdim)
+    return out[], ITensor(out2[1])[]
+  end
+
+  ITensors.set_warn_order(100)
+  out_true, out2 = get_contracted_peps(linkdim^N[2])
+  print(out_true, out2)
+  @test abs((out_true - out2) / out_true) < 1e-3
+
+  maxdims = [10, 11, 12, 13, 14, 15, 16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  for dim in maxdims
+    out, out2 = get_contracted_peps(dim)
+    error1 = abs((out - out_true) / out_true)
+    error2 = abs((out2 - out_true) / out_true)
+    print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
+  end
 end

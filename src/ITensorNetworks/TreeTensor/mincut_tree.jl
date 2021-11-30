@@ -1,10 +1,14 @@
 using Graphs, GraphsFlows
 
+# a large number to prevent this edge being a cut
+MAX_WEIGHT = 100000
+
 function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vector)
   edge_dict = Dict()
+  # only go over contracted inds
   contract_edges = []
   for (i, t) in enumerate(network)
-    for ind in inds(t)
+    for ind in setdiff(inds(t), uncontract_inds)
       if !haskey(edge_dict, ind)
         edge_dict[ind] = (i, log2(space(ind)))
       else
@@ -23,7 +27,19 @@ function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vect
     capacity_matrix[u, v] = f
     capacity_matrix[v, u] = f
   end
-  return mincut_inds_binary_tree(graph, capacity_matrix, edge_dict, uncontract_inds)
+  # update uncontract inds
+  grouped_uncontracted_inds = []
+  for (i, t) in enumerate(network)
+    ucinds = intersect(inds(t), uncontract_inds)
+    if length(ucinds) == 0
+      continue
+    end
+    push!(grouped_uncontracted_inds, ucinds)
+    edge_dict[ucinds] = (i, MAX_WEIGHT)
+  end
+  return mincut_inds_binary_tree(
+    graph, capacity_matrix, edge_dict, grouped_uncontracted_inds
+  )
 end
 
 function mincut_inds_binary_tree(
@@ -63,7 +79,7 @@ function mincut_inds_binary_tree(
   # update the dict
   edge_dict[new_edge[1]] = (u1, last_vertex, w_u1)
   edge_dict[new_edge[2]] = (u2, last_vertex, w_u2)
-  edge_dict[new_edge] = (last_vertex, minval)
+  edge_dict[new_edge] = (last_vertex, MAX_WEIGHT)
   # update uncontract_inds
   uncontract_inds = setdiff(uncontract_inds, new_edge)
   uncontract_inds = vcat(uncontract_inds, [new_edge])
@@ -88,18 +104,16 @@ function mincut_value(
     u, _ = edge_dict[ind]
     Graphs.add_edge!(graph, u, s)
     Graphs.add_edge!(graph, s, u)
-    # a large number to prevent this edge being a cut
-    new_capacity_matrix[u, s] = 100000
-    new_capacity_matrix[s, u] = 100000
+    new_capacity_matrix[u, s] = MAX_WEIGHT
+    new_capacity_matrix[s, u] = MAX_WEIGHT
   end
   terminal_inds = setdiff(uncontract_inds, split_inds)
   for ind in terminal_inds
     u, _ = edge_dict[ind]
     Graphs.add_edge!(graph, u, t)
     Graphs.add_edge!(graph, t, u)
-    # a large number to prevent this edge being a cut
-    new_capacity_matrix[u, t] = 100000
-    new_capacity_matrix[t, u] = 100000
+    new_capacity_matrix[u, t] = MAX_WEIGHT
+    new_capacity_matrix[t, u] = MAX_WEIGHT
   end
   _, _, flow = GraphsFlows.mincut(graph, s, t, new_capacity_matrix, EdmondsKarpAlgorithm())
   return flow
