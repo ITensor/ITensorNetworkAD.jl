@@ -7,7 +7,8 @@ ITensors.ITensor(t::TreeTensor; kwargs...) = contract(collect(t.tensors)...; kwa
 ITensors.contract(t1::TreeTensor; kwargs...) = t1
 
 function ITensors.contract(t1::TreeTensor, t2::TreeTensor...; kwargs...)
-  return contract(t1, contract(t2...; kwargs...); kwargs...)
+  ts = mapreduce(t -> t.tensors, vcat, t2)
+  return contract(t1, TreeTensor(ts...); kwargs...)
 end
 
 ITensors.contract(t_list::Vector{TreeTensor}; kwargs...) = contract(t_list...; kwargs...)

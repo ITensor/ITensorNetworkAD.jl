@@ -35,6 +35,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: batch_tensor_contraction
 end
 
 @testset "test TreeTensor" begin
+  ITensors.set_warn_order(100)
   Nx, Ny = 3, 3
   sites = siteinds("S=1/2", Ny, Nx)
   peps = PEPS(sites; linkdims=2)

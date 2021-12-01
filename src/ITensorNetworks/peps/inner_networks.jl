@@ -59,11 +59,11 @@ end
 
 function inner_network(peps::PEPS, peps_prime::PEPS, ::typeof(tree))
   Ny, Nx = size(peps.data)
-  function get_tree(i)
-    return tree(peps.data[i, :], peps_prime.data[i, :])
+  network = SubNetwork(peps.data[1, :]..., peps_prime.data[1, :]...)
+  for i in 2:Ny
+    network = SubNetwork(network, peps.data[i, :]..., peps_prime.data[i, :]...)
   end
-  subnetworks = [get_tree(i) for i in 1:Ny]
-  return SubNetwork(subnetworks)
+  return network
 end
 
 function inner_network(
@@ -75,15 +75,37 @@ function inner_network(
   ::typeof(tree),
 )
   Ny, Nx = size(peps.data)
-  function get_tree(i)
-    if i == coordinate[1]
-      return tree(peps.data[i, :], peps_prime_ham.data[i, :], mpo.data)
-    else
-      return tree(peps.data[i, :], peps_prime.data[i, :])
+  network1, network2 = SubNetwork(), SubNetwork()
+  if coordinate[1] > 1
+    network1 = SubNetwork(peps.data[1, :]..., peps_prime.data[1, :]...)
+    for i in 2:(coordinate[1] - 1)
+      network1 = SubNetwork(network1, peps.data[i, :]..., peps_prime.data[i, :]...)
     end
   end
-  subnetworks = [get_tree(i) for i in 1:Ny]
-  return SubNetwork(subnetworks)
+  if coordinate[1] < Ny
+    network2 = SubNetwork(peps.data[Ny, :]..., peps_prime.data[Ny, :]...)
+    for i in reverse((coordinate[1] + 1):(Ny - 1))
+      network2 = SubNetwork(network2, peps.data[i, :]..., peps_prime.data[i, :]...)
+    end
+  end
+  if coordinate[1] == 1
+    return SubNetwork(
+      network2, peps.data[1, :]..., peps_prime_ham.data[1, :]..., mpo.data...
+    )
+  elseif coordinate[1] == Ny
+    return SubNetwork(
+      network1, peps.data[Ny, :]..., peps_prime_ham.data[Ny, :]..., mpo.data...
+    )
+  else
+    index = coordinate[1]
+    return SubNetwork(
+      network1,
+      network2,
+      peps.data[index, :]...,
+      peps_prime_ham.data[index, :]...,
+      mpo.data...,
+    )
+  end
 end
 
 function inner_network(
@@ -95,15 +117,37 @@ function inner_network(
   ::typeof(tree),
 )
   Ny, Nx = size(peps.data)
-  function get_tree(i)
-    if i == coordinate[2]
-      return tree(peps.data[:, i], peps_prime_ham.data[:, i], mpo.data)
-    else
-      return tree(peps.data[:, i], peps_prime.data[:, i])
+  network1, network2 = SubNetwork(), SubNetwork()
+  if coordinate[2] > 1
+    network1 = SubNetwork(peps.data[:, 1]..., peps_prime.data[:, 1]...)
+    for i in 2:(coordinate[2] - 1)
+      network1 = SubNetwork(network1, peps.data[:, i]..., peps_prime.data[:, i]...)
     end
   end
-  subnetworks = [get_tree(i) for i in 1:Nx]
-  return SubNetwork(subnetworks)
+  if coordinate[2] < Nx
+    network2 = SubNetwork(peps.data[:, Nx]..., peps_prime.data[:, Nx]...)
+    for i in reverse((coordinate[2] + 1):(Nx - 1))
+      network2 = SubNetwork(network2, peps.data[:, i]..., peps_prime.data[:, i]...)
+    end
+  end
+  if coordinate[2] == 1
+    return SubNetwork(
+      network2, peps.data[:, 1]..., peps_prime_ham.data[:, 1]..., mpo.data...
+    )
+  elseif coordinate[2] == Nx
+    return SubNetwork(
+      network1, peps.data[:, Nx]..., peps_prime_ham.data[:, Nx]..., mpo.data...
+    )
+  else
+    index = coordinate[2]
+    return SubNetwork(
+      network1,
+      network2,
+      peps.data[:, index]...,
+      peps_prime_ham.data[:, index]...,
+      mpo.data...,
+    )
+  end
 end
 
 function inner_networks(
