@@ -13,8 +13,8 @@ end
 
 @non_differentiable Executor(networks::Vector{<:Vector{<:AbstractTensor}})
 
-function Executor(trees::Vector{SubNetwork})
-  nodes, node_dict = generate_einsum_expr(trees; optimize=true)
+function Executor(trees::Vector{SubNetwork}; optimize=true)
+  nodes, node_dict = generate_einsum_expr(trees; optimize=optimize)
   net_sums = [NetworkSum([n]) for n in nodes]
   return Executor(net_sums, node_dict)
 end

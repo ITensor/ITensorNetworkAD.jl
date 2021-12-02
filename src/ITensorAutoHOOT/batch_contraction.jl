@@ -88,8 +88,10 @@ function batch_tensor_contraction(
   return out
 end
 
-function batch_tensor_contraction(tensortype, trees::Vector{SubNetwork}, vars...; kwargs...)
+function batch_tensor_contraction(
+  tensortype, trees::Vector{SubNetwork}, vars...; optimize=true, kwargs...
+)
   trees, vars = abstract_network(tensortype, trees, vars; kwargs...)
-  out = batch_tensor_contraction(Executor(trees), vars...; kwargs...)
+  out = batch_tensor_contraction(Executor(trees; optimize=optimize), vars...; kwargs...)
   return out
 end

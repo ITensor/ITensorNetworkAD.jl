@@ -36,7 +36,9 @@ function loss_grad_wrap(peps::PEPS, Hs::Array{Models.LineMPO}, tensortype, tree;
     network_inner = inner_network(peps_bra, peps_ket, tree)
     network_list = vcat(network_list_row, network_list_column, [network_inner])
     variables = flatten([peps_bra, peps_ket, peps_ket_ham])
-    inners = batch_tensor_contraction(tensortype, network_list, variables...; kwargs...)
+    inners = batch_tensor_contraction(
+      tensortype, network_list, variables...; optimize=false, kwargs...
+    )
     return rayleigh_quotient(inners)
   end
   loss_w_grad(peps::PEPS) = loss(peps), gradient(loss, peps)[1]

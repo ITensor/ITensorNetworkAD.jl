@@ -36,22 +36,23 @@ end
   i = Index(2, "i")
   j = Index(3, "j")
   k = Index(2, "k")
+  l = Index(2, "l")
+  m = Index(2, "m")
   A = randomITensor(i, j)
   B = randomITensor(j, k)
-  C = randomITensor(k, i)
+  C = randomITensor(k, l)
+  D = randomITensor(l, m)
+  E = randomITensor(m, i)
 
   function network(A)
-    tree_A = TreeTensor(A)
-    tree_B = TreeTensor(B)
-    tree_C = TreeTensor(C)
-    tensor_network = [tree_A, tree_B, tree_C]
+    tensor_network = SubNetwork(SubNetwork(A, B, C), D, E)
     out = itensorah.batch_tensor_contraction(
-      [tensor_network], tree_A; cutoff=1e-15, maxdim=1000
+      TreeTensor, [tensor_network], A; cutoff=1e-15, maxdim=1000, optimize=false
     )
     return sum(out)[]
   end
   grad_A = gradient(network, A)
-  @test isapprox(grad_A[1], B * C)
+  @test isapprox(grad_A[1], B * C * D * E)
 end
 
 @testset "test uncontract_inds_binary_tree" begin
