@@ -1,5 +1,7 @@
 using SweepContractor
+using ..ITensorAutoHOOT
 using SweepContractor: TensorNetwork, LabelledTensorNetwork
+using ..ITensorAutoHOOT: SubNetwork
 
 function ITensor_networks(TN::TensorNetwork)
   SweepContractor.sort!(TN)
@@ -24,4 +26,11 @@ end
 
 function ITensor_networks(LTN::LabelledTensorNetwork)
   return ITensor_networks(SweepContractor.delabel(LTN))
+end
+
+function line_network(network::Vector)
+  if length(network) <= 2
+    return SubNetwork(network)
+  end
+  return SubNetwork(line_network(network[1:(end - 1)]), network[end])
 end
