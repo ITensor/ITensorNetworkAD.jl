@@ -4,6 +4,7 @@ using ITensors
 
 using ITensors: data, contract
 
+include("interfaces/sweep_contractor.jl")
 include("ITensors.jl")
 include("networks/lattices.jl")
 include("networks/inds_network.jl")
