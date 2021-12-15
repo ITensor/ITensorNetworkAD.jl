@@ -34,26 +34,32 @@ function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vect
     if length(ucinds) == 0
       continue
     end
-    push!(grouped_uncontracted_inds, ucinds)
-    edge_dict[ucinds] = (i, MAX_WEIGHT)
+    for ind in ucinds
+      push!(grouped_uncontracted_inds, [ind])
+      edge_dict[[ind]] = (i, MAX_WEIGHT)
+    end
+  end
+  split_inds_list = []
+  for i in 1:length(grouped_uncontracted_inds)
+    for j in (i + 1):length(grouped_uncontracted_inds)
+      push!(split_inds_list, [grouped_uncontracted_inds[i], grouped_uncontracted_inds[j]])
+    end
   end
   return mincut_inds_binary_tree(
-    graph, capacity_matrix, edge_dict, grouped_uncontracted_inds
+    graph, capacity_matrix, edge_dict, grouped_uncontracted_inds, split_inds_list
   )
 end
 
 function mincut_inds_binary_tree(
-  graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
+  graph::Graphs.DiGraph,
+  capacity_matrix::Matrix,
+  edge_dict::Dict,
+  uncontract_inds::Vector,
+  split_inds_list::Vector,
 )
   # base case here
   if length(uncontract_inds) <= 2
     return uncontract_inds
-  end
-  split_inds_list = []
-  for i in 1:length(uncontract_inds)
-    for j in (i + 1):length(uncontract_inds)
-      push!(split_inds_list, [uncontract_inds[i], uncontract_inds[j]])
-    end
   end
   mincuts = [
     mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds) for
@@ -83,7 +89,19 @@ function mincut_inds_binary_tree(
   # update uncontract_inds
   uncontract_inds = setdiff(uncontract_inds, new_edge)
   uncontract_inds = vcat(uncontract_inds, [new_edge])
-  return mincut_inds_binary_tree(graph, new_capacity_matrix, edge_dict, uncontract_inds)
+  # update split_inds_list
+  split_inds_list = []
+  # for i in 1:length(uncontract_inds) - 1
+  #     push!(split_inds_list, [uncontract_inds[i], new_edge])
+  # end
+  for i in 1:length(uncontract_inds)
+    for j in (i + 1):length(uncontract_inds)
+      push!(split_inds_list, [uncontract_inds[i], uncontract_inds[j]])
+    end
+  end
+  return mincut_inds_binary_tree(
+    graph, new_capacity_matrix, edge_dict, uncontract_inds, split_inds_list
+  )
 end
 
 function mincut_value(

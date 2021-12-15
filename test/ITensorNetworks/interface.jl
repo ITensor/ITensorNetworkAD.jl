@@ -26,11 +26,54 @@ end
     j < L && push!(adj, (i, j + 1))
     LTN[i, j] = Tensor(adj, randn(d * ones(Int, length(adj))...), i, j)
   end
-  inetwork = line_network(ITensor_networks(LTN))
-  for rank in d .^ (1:6)
+  tnet = ITensor_networks(LTN)
+  element_grouping = line_network(tnet)
+  tnet_mat = reshape(tnet, L, L)
+  line_grouping = SubNetwork(tnet_mat[:, 1])
+  for i in 2:L
+    line_grouping = SubNetwork(line_grouping, tnet_mat[:, i]...)
+  end
+
+  function get_contracted_peps(rank)
+    x = tnet_mat[:, 1]
+    for i in 2:(L - 1)
+      A = tnet_mat[:, i]
+      x = contract(MPO(A), MPS(x); cutoff=1e-15, maxdim=rank)[:]
+    end
+    out_mps = contract(x..., tnet_mat[:, L]...)
     sweep = sweep_contract(LTN, rank, rank; fast=true)
-    println("rank=$rank:\t", ldexp(sweep...))
-    out2 = batch_tensor_contraction(TreeTensor, [inetwork]; cutoff=1e-15, maxdim=rank)
-    print("tree network", ITensor(out2[1])[], "\n")
+    out = ldexp(sweep...)
+    out2 = batch_tensor_contraction(
+      TreeTensor, [element_grouping]; cutoff=1e-15, maxdim=rank
+    )
+    out3 = batch_tensor_contraction(
+      TreeTensor, [line_grouping]; cutoff=1e-15, maxdim=rank, optimize=false
+    )
+    return out, ITensor(out2[1])[], ITensor(out3[1])[], out_mps[]
+  end
+
+  out_true, out_element, out_line, out_mps = get_contracted_peps(d^(Int(L / 2)))
+  @test abs((out_true - out_element) / out_true) < 1e-3
+  @test abs((out_true - out_line) / out_true) < 1e-3
+  @test abs((out_true - out_mps) / out_true) < 1e-3
+  for rank in [1, 2, 3, 4, 6, 8, 10, 12, 14, 15, 16]
+    out, out_element, out_line, out_mps = get_contracted_peps(rank)
+    error_sweepcontractor = abs((out - out_true) / out_true)
+    error_element = abs((out_element - out_true) / out_true)
+    error_line = abs((out_line - out_true) / out_true)
+    error_mps = abs((out_mps - out_true) / out_true)
+    print(
+      "maxdim, ",
+      rank,
+      ", error_sweepcontractor, ",
+      error_sweepcontractor,
+      ", error_element, ",
+      error_element,
+      ", error_line, ",
+      error_line,
+      ", error_mps, ",
+      error_mps,
+      "\n",
+    )
   end
 end
