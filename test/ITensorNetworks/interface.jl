@@ -1,4 +1,4 @@
-using ITensors, SweepContractor, ITensorNetworkAD
+using ITensors, Random, SweepContractor, ITensorNetworkAD
 using ITensorNetworkAD.ITensorNetworks: ITensor_networks, line_network, TreeTensor
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
@@ -15,32 +15,33 @@ using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 end
 
 @testset "test on 2D grid" begin
+  Random.seed!(1234)
   ITensors.set_warn_order(100)
-  L, d = 8, 2
+  row, column, d = 8, 8, 2
   LTN = LabelledTensorNetwork{Tuple{Int,Int}}()
-  for i in 1:L, j in 1:L
+  for i in 1:row, j in 1:column
     adj = Tuple{Int,Int}[]
     i > 1 && push!(adj, (i - 1, j))
     j > 1 && push!(adj, (i, j - 1))
-    i < L && push!(adj, (i + 1, j))
-    j < L && push!(adj, (i, j + 1))
+    i < row && push!(adj, (i + 1, j))
+    j < column && push!(adj, (i, j + 1))
     LTN[i, j] = Tensor(adj, randn(d * ones(Int, length(adj))...), i, j)
   end
   tnet = ITensor_networks(LTN)
   element_grouping = line_network(tnet)
-  tnet_mat = reshape(tnet, L, L)
+  tnet_mat = reshape(tnet, row, column)
   line_grouping = SubNetwork(tnet_mat[:, 1])
-  for i in 2:L
+  for i in 2:column
     line_grouping = SubNetwork(line_grouping, tnet_mat[:, i]...)
   end
 
   function get_contracted_peps(rank)
     x = tnet_mat[:, 1]
-    for i in 2:(L - 1)
+    for i in 2:(column - 1)
       A = tnet_mat[:, i]
       x = contract(MPO(A), MPS(x); cutoff=1e-15, maxdim=rank)[:]
     end
-    out_mps = contract(x..., tnet_mat[:, L]...)
+    out_mps = contract(x..., tnet_mat[:, column]...)
     sweep = sweep_contract(LTN, rank, rank; fast=true)
     out = ldexp(sweep...)
     out2 = batch_tensor_contraction(
@@ -52,7 +53,7 @@ end
     return out, ITensor(out2[1])[], ITensor(out3[1])[], out_mps[]
   end
 
-  out_true, out_element, out_line, out_mps = get_contracted_peps(d^(Int(L / 2)))
+  out_true, out_element, out_line, out_mps = get_contracted_peps(d^(Int(row / 2)))
   @test abs((out_true - out_element) / out_true) < 1e-3
   @test abs((out_true - out_line) / out_true) < 1e-3
   @test abs((out_true - out_mps) / out_true) < 1e-3

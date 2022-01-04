@@ -36,7 +36,7 @@ function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vect
     end
     for ind in ucinds
       push!(grouped_uncontracted_inds, [ind])
-      edge_dict[[ind]] = (i, MAX_WEIGHT)
+      edge_dict[[ind]] = (i, log2(space(ind)))
     end
   end
   split_inds_list = []
@@ -65,7 +65,17 @@ function mincut_inds_binary_tree(
     mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds) for
     split_inds in split_inds_list
   ]
-  minval, i = findmin(mincuts)
+  split_sizes = [
+    edge_dict[split_inds[1]][2] + edge_dict[split_inds[2]][2] for
+    split_inds in split_inds_list
+  ]
+  weights = [min(mincuts[i], split_sizes[i]) for i in 1:length(mincuts)]
+  indices_min = [i for i in 1:length(mincuts) if weights[i] == min(weights...)]
+  cuts_min = [mincuts[i] for i in indices_min]
+  _, index = findmin(cuts_min)
+  i = indices_min[index]
+  minval = weights[i]
+
   new_edge = split_inds_list[i]
   # update the graph
   add_vertex!(graph)
@@ -78,22 +88,19 @@ function mincut_inds_binary_tree(
   Graphs.add_edge!(graph, last_vertex, u2)
   new_capacity_matrix = zeros(last_vertex, last_vertex)
   new_capacity_matrix[1:(last_vertex - 1), 1:(last_vertex - 1)] = capacity_matrix
-  new_capacity_matrix[u1, last_vertex] = w_u1
-  new_capacity_matrix[u2, last_vertex] = w_u2
-  new_capacity_matrix[last_vertex, u1] = w_u1
-  new_capacity_matrix[last_vertex, u2] = w_u2
+  new_capacity_matrix[u1, last_vertex] = MAX_WEIGHT
+  new_capacity_matrix[u2, last_vertex] = MAX_WEIGHT
+  new_capacity_matrix[last_vertex, u1] = MAX_WEIGHT
+  new_capacity_matrix[last_vertex, u2] = MAX_WEIGHT
   # update the dict
-  edge_dict[new_edge[1]] = (u1, last_vertex, w_u1)
-  edge_dict[new_edge[2]] = (u2, last_vertex, w_u2)
-  edge_dict[new_edge] = (last_vertex, MAX_WEIGHT)
+  edge_dict[new_edge[1]] = (u1, last_vertex, MAX_WEIGHT)#w_u1)
+  edge_dict[new_edge[2]] = (u2, last_vertex, MAX_WEIGHT)#w_u2)
+  edge_dict[new_edge] = (last_vertex, minval)
   # update uncontract_inds
   uncontract_inds = setdiff(uncontract_inds, new_edge)
   uncontract_inds = vcat(uncontract_inds, [new_edge])
   # update split_inds_list
   split_inds_list = []
-  # for i in 1:length(uncontract_inds) - 1
-  #     push!(split_inds_list, [uncontract_inds[i], new_edge])
-  # end
   for i in 1:length(uncontract_inds)
     for j in (i + 1):length(uncontract_inds)
       push!(split_inds_list, [uncontract_inds[i], uncontract_inds[j]])
