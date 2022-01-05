@@ -25,7 +25,7 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   end
   # TODO: add caching here
   uncontract_inds = noncommoninds(network...)
-  inds_btree = mincut_inds_binary_tree(network, uncontract_inds)
+  inds_btree = inds_binary_tree(network, uncontract_inds)
   tree = tree_approximation(network, inds_btree; cutoff=cutoff, maxdim=maxdim)
   out = TreeTensor(tree...)
   # print("output is ", out, "\n")

@@ -3,7 +3,7 @@ using Graphs, GraphsFlows
 # a large number to prevent this edge being a cut
 MAX_WEIGHT = 100000
 
-function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vector)
+function graph_generation(network::Vector{ITensor}, uncontract_inds::Vector)
   edge_dict = Dict()
   # only go over contracted inds
   contract_edges = []
@@ -39,45 +39,45 @@ function mincut_inds_binary_tree(network::Vector{ITensor}, uncontract_inds::Vect
       edge_dict[[ind]] = (i, log2(space(ind)))
     end
   end
-  split_inds_list = []
-  for i in 1:length(grouped_uncontracted_inds)
-    for j in (i + 1):length(grouped_uncontracted_inds)
-      push!(split_inds_list, [grouped_uncontracted_inds[i], grouped_uncontracted_inds[j]])
-    end
-  end
-  return mincut_inds_binary_tree(
-    graph, capacity_matrix, edge_dict, grouped_uncontracted_inds, split_inds_list
-  )
+  return graph, capacity_matrix, edge_dict, grouped_uncontracted_inds
 end
 
-function mincut_inds_binary_tree(
-  graph::Graphs.DiGraph,
-  capacity_matrix::Matrix,
-  edge_dict::Dict,
-  uncontract_inds::Vector,
-  split_inds_list::Vector,
+function inds_binary_tree(
+  network::Vector{ITensor}, uncontract_inds::Vector; algorithm="mincut"
+)
+  graph, capacity_matrix, edge_dict, grouped_uncontracted_inds = graph_generation(
+    network, uncontract_inds
+  )
+  if algorithm == "mincut"
+    return mincut_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
+    # elseif algorithm == "mps"
+    #   return mps_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
+  end
+end
+
+function mincut_inds(
+  graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
 )
   # base case here
   if length(uncontract_inds) <= 2
     return uncontract_inds
   end
-  mincuts = [
-    mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds) for
-    split_inds in split_inds_list
-  ]
-  split_sizes = [
-    edge_dict[split_inds[1]][2] + edge_dict[split_inds[2]][2] for
-    split_inds in split_inds_list
-  ]
-  weights = [min(mincuts[i], split_sizes[i]) for i in 1:length(mincuts)]
-  indices_min = [i for i in 1:length(mincuts) if weights[i] == min(weights...)]
-  cuts_min = [mincuts[i] for i in indices_min]
-  _, index = findmin(cuts_min)
-  i = indices_min[index]
-  minval = weights[i]
+  new_edge, minval = new_edge_general(graph, capacity_matrix, edge_dict, uncontract_inds)
+  new_capacity_matrix, uncontract_inds = update!(
+    graph, capacity_matrix, edge_dict, uncontract_inds, new_edge, minval
+  )
+  return mincut_inds(graph, new_capacity_matrix, edge_dict, uncontract_inds)
+end
 
-  new_edge = split_inds_list[i]
-  # update the graph
+# update the graph
+function update!(
+  graph::Graphs.DiGraph,
+  capacity_matrix::Matrix,
+  edge_dict::Dict,
+  uncontract_inds::Vector,
+  new_edge::Vector,
+  minval,
+)
   add_vertex!(graph)
   last_vertex = size(graph)[1]
   u1, w_u1 = edge_dict[new_edge[1]]
@@ -99,16 +99,34 @@ function mincut_inds_binary_tree(
   # update uncontract_inds
   uncontract_inds = setdiff(uncontract_inds, new_edge)
   uncontract_inds = vcat(uncontract_inds, [new_edge])
-  # update split_inds_list
+  return new_capacity_matrix, uncontract_inds
+end
+
+function new_edge_general(
+  graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
+)
   split_inds_list = []
   for i in 1:length(uncontract_inds)
     for j in (i + 1):length(uncontract_inds)
       push!(split_inds_list, [uncontract_inds[i], uncontract_inds[j]])
     end
   end
-  return mincut_inds_binary_tree(
-    graph, new_capacity_matrix, edge_dict, uncontract_inds, split_inds_list
-  )
+  mincuts = [
+    mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds) for
+    split_inds in split_inds_list
+  ]
+  split_sizes = [
+    edge_dict[split_inds[1]][2] + edge_dict[split_inds[2]][2] for
+    split_inds in split_inds_list
+  ]
+  weights = [min(mincuts[i], split_sizes[i]) for i in 1:length(mincuts)]
+  indices_min = [i for i in 1:length(mincuts) if weights[i] == min(weights...)]
+  cuts_min = [mincuts[i] for i in indices_min]
+  _, index = findmin(cuts_min)
+  i = indices_min[index]
+  minval = weights[i]
+  new_edge = split_inds_list[i]
+  return new_edge, minval
 end
 
 function mincut_value(
