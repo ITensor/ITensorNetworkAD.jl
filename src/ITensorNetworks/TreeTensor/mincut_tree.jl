@@ -50,8 +50,8 @@ function inds_binary_tree(
   )
   if algorithm == "mincut"
     return mincut_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
-    # elseif algorithm == "mps"
-    #   return mps_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
+  elseif algorithm == "mps"
+    return mps_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
   end
 end
 
@@ -62,11 +62,34 @@ function mincut_inds(
   if length(uncontract_inds) <= 2
     return uncontract_inds
   end
-  new_edge, minval = new_edge_general(graph, capacity_matrix, edge_dict, uncontract_inds)
+  new_edge, minval = new_edge_mincut(graph, capacity_matrix, edge_dict, uncontract_inds)
   new_capacity_matrix, uncontract_inds = update!(
     graph, capacity_matrix, edge_dict, uncontract_inds, new_edge, minval
   )
   return mincut_inds(graph, new_capacity_matrix, edge_dict, uncontract_inds)
+end
+
+function mps_inds(
+  graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
+)
+  # base case here
+  if length(uncontract_inds) <= 2
+    return uncontract_inds
+  end
+  new_edge, minval = new_edge_mincut(graph, capacity_matrix, edge_dict, uncontract_inds)
+  new_capacity_matrix, uncontract_inds = update!(
+    graph, capacity_matrix, edge_dict, uncontract_inds, new_edge, minval
+  )
+  s = edge_dict[new_edge][1]
+  ds = dijkstra_shortest_paths(graph, s, new_capacity_matrix)
+  get_dist(edge) = ds.dists[edge_dict[edge][1]]
+  remain_inds = [i for i in uncontract_inds if i != new_edge]
+  sort!(remain_inds; by=get_dist)
+  out_inds = new_edge
+  for i in remain_inds
+    out_inds = [out_inds, i]
+  end
+  return out_inds
 end
 
 # update the graph
@@ -102,7 +125,7 @@ function update!(
   return new_capacity_matrix, uncontract_inds
 end
 
-function new_edge_general(
+function new_edge_mincut(
   graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
 )
   split_inds_list = []

@@ -1,7 +1,7 @@
 using ITensorNetworkAD
 using AutoHOOT, ITensors, Zygote
 using ITensorNetworkAD.ITensorNetworks:
-  TreeTensor, uncontract_inds_binary_tree, tree_approximation, mincut_inds_binary_tree
+  TreeTensor, uncontract_inds_binary_tree, tree_approximation, inds_binary_tree
 using ITensorNetworkAD.ITensorNetworks: inds_network, project_boundary, Models
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
@@ -109,18 +109,20 @@ end
   end
 end
 
-@testset "test mincut_inds_binary_tree" begin
+@testset "test inds_binary_tree" begin
   i = Index(2, "i")
-  j = Index(3, "j")
+  j = Index(2, "j")
   k = Index(2, "k")
-  l = Index(4, "l")
-  m = Index(5, "m")
+  l = Index(2, "l")
+  m = Index(2, "m")
 
   T = randomITensor(i, j, k, l, m)
   M = MPS(T, (i, j, k, l, m); cutoff=1e-5, maxdim=5)
   network = M[:]
 
-  out = mincut_inds_binary_tree(network, [i, j, k, l, m])
+  out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mincut")
+  @test length(out) == 2
+  out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mps")
   @test length(out) == 2
 end
 
