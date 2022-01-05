@@ -13,5 +13,6 @@ include("TreeTensor/TreeTensor.jl")
 include("models/models.jl")
 include("approximations/approximations.jl")
 include("peps/peps.jl")
+include("interfaces/sweep_contractor.jl")
 
 end
