@@ -124,7 +124,11 @@ function update!(
 end
 
 function new_edge_mincut(
-  graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector, size=2
+  graph::Graphs.DiGraph,
+  capacity_matrix::Matrix,
+  edge_dict::Dict,
+  uncontract_inds::Vector,
+  size=2,
 )
   split_inds_list = collect(powerset(uncontract_inds, size, size))
   mincuts = [
@@ -132,8 +136,7 @@ function new_edge_mincut(
     split_inds in split_inds_list
   ]
   split_sizes = [
-    sum([edge_dict[ind][2] for ind in split_inds]) for
-    split_inds in split_inds_list
+    sum([edge_dict[ind][2] for ind in split_inds]) for split_inds in split_inds_list
   ]
   weights = [min(mincuts[i], split_sizes[i]) for i in 1:length(mincuts)]
   indices_min = [i for i in 1:length(mincuts) if weights[i] == min(weights...)]
