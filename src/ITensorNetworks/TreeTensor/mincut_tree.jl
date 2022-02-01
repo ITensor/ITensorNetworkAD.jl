@@ -1,4 +1,4 @@
-using Graphs, GraphsFlows
+using Graphs, GraphsFlows, Combinatorics
 
 # a large number to prevent this edge being a cut
 MAX_WEIGHT = 100000
@@ -76,16 +76,14 @@ function mps_inds(
   if length(uncontract_inds) <= 2
     return uncontract_inds
   end
-  new_edge, minval = new_edge_mincut(graph, capacity_matrix, edge_dict, uncontract_inds)
-  new_capacity_matrix, uncontract_inds = update!(
-    graph, capacity_matrix, edge_dict, uncontract_inds, new_edge, minval
-  )
-  s = edge_dict[new_edge][1]
-  ds = dijkstra_shortest_paths(graph, s, new_capacity_matrix)
+  new_edge, minval = new_edge_mincut(graph, capacity_matrix, edge_dict, uncontract_inds, 1)
+  first_ind = new_edge[1]
+  s = edge_dict[first_ind][1]
+  ds = dijkstra_shortest_paths(graph, s, capacity_matrix)
   get_dist(edge) = ds.dists[edge_dict[edge][1]]
-  remain_inds = [i for i in uncontract_inds if i != new_edge]
+  remain_inds = [i for i in uncontract_inds if i != first_ind]
   sort!(remain_inds; by=get_dist)
-  out_inds = new_edge
+  out_inds = first_ind
   for i in remain_inds
     out_inds = [out_inds, i]
   end
@@ -126,21 +124,19 @@ function update!(
 end
 
 function new_edge_mincut(
-  graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
+  graph::Graphs.DiGraph,
+  capacity_matrix::Matrix,
+  edge_dict::Dict,
+  uncontract_inds::Vector,
+  size=2,
 )
-  split_inds_list = []
-  for i in 1:length(uncontract_inds)
-    for j in (i + 1):length(uncontract_inds)
-      push!(split_inds_list, [uncontract_inds[i], uncontract_inds[j]])
-    end
-  end
+  split_inds_list = collect(powerset(uncontract_inds, size, size))
   mincuts = [
     mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds) for
     split_inds in split_inds_list
   ]
   split_sizes = [
-    edge_dict[split_inds[1]][2] + edge_dict[split_inds[2]][2] for
-    split_inds in split_inds_list
+    sum([edge_dict[ind][2] for ind in split_inds]) for split_inds in split_inds_list
   ]
   weights = [min(mincuts[i], split_sizes[i]) for i in 1:length(mincuts)]
   indices_min = [i for i in 1:length(mincuts) if weights[i] == min(weights...)]
