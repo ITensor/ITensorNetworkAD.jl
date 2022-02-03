@@ -1,7 +1,11 @@
 using ITensorNetworkAD
 using AutoHOOT, ITensors, Zygote
 using ITensorNetworkAD.ITensorNetworks:
-  TreeTensor, uncontract_inds_binary_tree, tree_approximation, inds_binary_tree
+  TreeTensor,
+  uncontract_inds_binary_tree,
+  tree_approximation,
+  inds_binary_tree,
+  tree_embedding
 using ITensorNetworkAD.ITensorNetworks: inds_network, project_boundary, Models
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
@@ -124,6 +128,26 @@ end
   @test length(out) == 2
   out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mps")
   @test length(out) == 2
+end
+
+@testset "test tree embedding" begin
+  i = Index(2, "i")
+  j = Index(2, "j")
+  k = Index(2, "k")
+  l = Index(2, "l")
+  m = Index(2, "m")
+  T = randomITensor(i, j, k, l, m)
+  M = MPS(T, (i, j, k, l, m); cutoff=1e-5, maxdim=5)
+  network = M[:]
+  out1 = contract(network...)
+  inds_btree = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mincut")
+  tnet_dict = tree_embedding(network, inds_btree)
+  network2 = vcat(collect(values(tnet_dict))...)
+  out2 = contract(network2...)
+  i1 = noncommoninds(network...)
+  i2 = noncommoninds(network2...)
+  @test (length(i1) == length(i2))
+  @test isapprox(out1, out2)
 end
 
 @testset "test PEPS" begin
