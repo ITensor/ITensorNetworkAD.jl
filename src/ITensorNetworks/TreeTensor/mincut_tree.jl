@@ -58,6 +58,9 @@ end
 function mincut_subnetwork(
   network::Vector{ITensor}, sourceinds::Vector, uncontract_inds::Vector
 )
+  if length(sourceinds) == length(uncontract_inds)
+    return network
+  end
   graph, capacity_matrix, edge_dict, grouped_uncontracted_inds = graph_generation(
     network, uncontract_inds
   )
