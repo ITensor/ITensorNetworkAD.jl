@@ -135,7 +135,7 @@ function update!(
   edge_dict[new_edge] = (last_vertex, minval)
   # update uncontract_inds
   uncontract_inds = setdiff(uncontract_inds, new_edge)
-  uncontract_inds = vcat(uncontract_inds, [new_edge])
+  uncontract_inds = vcat([new_edge], uncontract_inds)
   return new_capacity_matrix, uncontract_inds
 end
 

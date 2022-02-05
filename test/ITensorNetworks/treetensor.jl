@@ -59,24 +59,46 @@ end
   @test isapprox(grad_A[1], B * C * D * E)
 end
 
-@testset "test uncontract_inds_binary_tree" begin
+@testset "test tree approximation" begin
   i = Index(2, "i")
   j = Index(2, "j")
   k = Index(2, "k")
   l = Index(2, "l")
   m = Index(2, "m")
-  A = randomITensor(i)
-  B = randomITensor(j)
-  C = randomITensor(k)
-  D = randomITensor(l)
-  E = randomITensor(m)
-
-  path = [[[A, B], [C, D]], E]
-  uncontract_inds = [i, j, k, l, m]
-  btree = uncontract_inds_binary_tree(path, uncontract_inds)
-  @test btree == [[[[i], [j]], [[k], [l]]], [m]]
-  out = tree_approximation([A, B, C, D, E], btree)
-  @test isapprox(contract(out), A * B * C * D * E)
+  n = Index(2, "n")
+  o = Index(2, "o")
+  p = Index(2, "p")
+  q = Index(2, "q")
+  r = Index(2, "r")
+  s = Index(2, "s")
+  t = Index(2, "t")
+  u = Index(2, "u")
+  A = randomITensor(i, n)
+  B = randomITensor(j, o)
+  AB = randomITensor(n, o, r)
+  C = randomITensor(k, p)
+  D = randomITensor(l, q)
+  E = randomITensor(m, u)
+  CD = randomITensor(p, q, s)
+  ABCD = randomITensor(r, s, t)
+  ABCDE = randomITensor(t, u)
+  btree = [[[[i], [j]], [[k], [l]]], [m]]
+  tensors = [A, B, C, D, E, AB, CD, ABCD, ABCDE]
+  out = tree_approximation(tensors, btree)
+  embedding = Dict([
+    [i] => [A],
+    [j] => [B],
+    [k] => [C],
+    [l] => [D],
+    [m] => [E],
+    [[i], [j]] => [AB],
+    [[k], [l]] => [CD],
+    [[[i], [j]], [[k], [l]]] => [ABCD],
+    [[[[i], [j]], [[k], [l]]], [m]] => [ABCDE],
+  ])
+  out2 = tree_approximation(embedding, btree)
+  @test isapprox(contract(out), contract(out2))
+  @test isapprox(contract(out), contract(tensors...))
 end
 
 @testset "test MPS times MPO" begin
@@ -160,12 +182,15 @@ end
   tn = project_boundary(tn, state)
 
   function get_contracted_peps(maxdim)
+    t1 = time()
     x = tn[:, 1]
     for i in 2:(N[2] - 1)
       A = tn[:, i]
       x = contract(MPO(A), MPS(x); cutoff=cutoff, maxdim=maxdim)[:]
     end
     out = contract(x..., tn[:, N[2]]...)
+    t2 = time()
+    print("mpo-mps algorithms runs ", t2 - t1, "s\n")
     network = SubNetwork(tn[:, 1])
     for i in 2:(N[2])
       network = SubNetwork(network, SubNetwork(tn[:, i]))
