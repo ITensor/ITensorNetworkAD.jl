@@ -55,6 +55,22 @@ function inds_binary_tree(
   end
 end
 
+function mincut_subnetwork(
+  network::Vector{ITensor}, sourceinds::Vector, uncontract_inds::Vector
+)
+  if length(sourceinds) == length(uncontract_inds)
+    return network
+  end
+  graph, capacity_matrix, edge_dict, grouped_uncontracted_inds = graph_generation(
+    network, uncontract_inds
+  )
+  grouped_sourceinds = [[ind] for ind in sourceinds]
+  part1, part2, mincut = mincut_value(
+    graph, capacity_matrix, edge_dict, grouped_uncontracted_inds, grouped_sourceinds
+  )
+  return [network[i] for i in part1 if i <= length(network)]
+end
+
 function mincut_inds(
   graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
 )
@@ -119,7 +135,7 @@ function update!(
   edge_dict[new_edge] = (last_vertex, minval)
   # update uncontract_inds
   uncontract_inds = setdiff(uncontract_inds, new_edge)
-  uncontract_inds = vcat(uncontract_inds, [new_edge])
+  uncontract_inds = vcat([new_edge], uncontract_inds)
   return new_capacity_matrix, uncontract_inds
 end
 
@@ -132,7 +148,7 @@ function new_edge_mincut(
 )
   split_inds_list = collect(powerset(uncontract_inds, size, size))
   mincuts = [
-    mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds) for
+    mincut_value(graph, capacity_matrix, edge_dict, uncontract_inds, split_inds)[3] for
     split_inds in split_inds_list
   ]
   split_sizes = [
@@ -177,6 +193,8 @@ function mincut_value(
     new_capacity_matrix[u, t] = MAX_WEIGHT
     new_capacity_matrix[t, u] = MAX_WEIGHT
   end
-  _, _, flow = GraphsFlows.mincut(graph, s, t, new_capacity_matrix, EdmondsKarpAlgorithm())
-  return flow
+  part1, part2, flow = GraphsFlows.mincut(
+    graph, s, t, new_capacity_matrix, EdmondsKarpAlgorithm()
+  )
+  return part1, part2, flow
 end
