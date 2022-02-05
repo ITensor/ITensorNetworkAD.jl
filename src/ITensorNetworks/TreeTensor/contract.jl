@@ -58,8 +58,6 @@ end
 
 # interlaced HOSVD using caching
 function tree_approximation(embedding::Dict, inds_btree::Vector; cutoff=1e-15, maxdim=10000)
-  upperenvs, closednets, opennets = Dict(), Dict(), Dict()
-  inds_dict = Dict()
   projectors = []
   # initialize sim_dict
   network = vcat(collect(values(embedding))...)
@@ -67,83 +65,59 @@ function tree_approximation(embedding::Dict, inds_btree::Vector; cutoff=1e-15, m
   innerinds = mapreduce(t -> [i for i in inds(t)], vcat, network)
   innerinds = Vector(setdiff(innerinds, uncontractinds))
   siminner_dict = Dict([ind => sim(ind) for ind in innerinds])
-
   function closednet(tree)
     netbra = embedding[tree]
     netket = sim(innerinds, netbra, siminner_dict)
     if length(tree) == 1
-      out = contract((vcat(netbra, netket)))
-      return out
+      return contract((vcat(netbra, netket)))
     end
     tleft, tright = closednet(tree[1]), closednet(tree[2])
-    out = contract((vcat(netbra, netket, [tleft], [tright])))
-    return out
+    return contract((vcat(netbra, netket, [tleft], [tright])))
   end
-
-  function insert_projectors(tree::Vector)
-    if length(tree) == 1
-      inds_dict[tree] = Tuple(tree)
-      netbra = embedding[tree]
-      netket = sim(innerinds, netbra, siminner_dict)
-      closednets[tree] = contract(([netbra..., netket...]))
-      tensor_bra = contract(netbra)
-      tensor_ket = sim(innerinds, [tensor_bra], siminner_dict)[1]
-      dict = Dict([ind => sim(ind) for ind in inds_dict[tree]])
-      tensor_ket = sim([i for i in inds_dict[tree]], [tensor_ket], dict)[1]
-      opennets[tree] = [tensor_bra, tensor_ket]
-      return nothing
-    end
+  function insert_projectors(tree::Vector, env::ITensor)
     netbra = embedding[tree]
     netket = sim(innerinds, netbra, siminner_dict)
-    # left
-    envnet = [upperenvs[tree], closednet(tree[2]), netbra..., netket...]
-    upperenvs[tree[1]] = contract((envnet))
-    insert_projectors(tree[1])
-    # right
-    envnet = [upperenvs[tree], closednets[tree[1]], netbra..., netket...]
-    upperenvs[tree[2]] = contract((envnet))
-    insert_projectors(tree[2])
+    if length(tree) == 1
+      tensor_bra = contract(netbra)
+      tensor_ket = sim(innerinds, [tensor_bra], siminner_dict)[1]
+      dict = Dict([ind => sim(ind) for ind in tree])
+      tensor_ket = sim(tree, [tensor_ket], dict)[1]
+      return tree, contract(([netbra..., netket...])), [tensor_bra, tensor_ket]
+    end
+    # update children
+    envnet = [env, closednet(tree[2]), netbra..., netket...]
+    ind1, subnetsq1, subnet1 = insert_projectors(tree[1], contract(envnet))
+    envnet = [env, subnetsq1, netbra..., netket...]
+    ind2, _, subnet2 = insert_projectors(tree[2], contract(envnet))
     # compute the projector
-    ind1, ind2 = inds_dict[tree[1]], inds_dict[tree[2]]
     rinds = Tuple([ind1..., ind2...])
-    net = [
-      upperenvs[tree], netbra..., netket..., opennets[tree[1]]..., opennets[tree[2]]...
-    ]
-    tensor_normal = contract((net))
-    linds = Tuple(setdiff(inds(tensor_normal), rinds))
+    net = [env, netbra..., netket..., subnet1..., subnet2...]
+    tnormal = contract((net))
+    linds = Tuple(setdiff(inds(tnormal), rinds))
     @assert length(rinds) == length(linds)
-    diag, U = eigen(
-      tensor_normal, linds, rinds; cutoff=cutoff, maxdim=maxdim, ishermitian=true
-    )
+    diag, U = eigen(tnormal, linds, rinds; cutoff=cutoff, maxdim=maxdim, ishermitian=true)
     dr = commonind(diag, U)
-    # update closednets[tree]
     Usim = replaceinds(U, rinds => linds)
-    net = [netbra..., netket..., opennets[tree[1]]..., opennets[tree[2]]..., U, Usim]
-    closednets[tree] = contract((net))
-    # update opennets[tree]
-    net1 = [netbra..., opennets[tree[1]][1], opennets[tree[2]][1], U]
+    net = [netbra..., netket..., subnet1..., subnet2..., U, Usim]
+    subnetsq = contract((net))
+    net1 = [netbra..., subnet1[1], subnet2[1], U]
     Usim = replaceinds(Usim, [dr] => [sim(dr)])
-    net2 = [netket..., opennets[tree[1]][2], opennets[tree[2]][2], Usim]
-    opennets[tree] = [contract(net1), contract(net2)]
+    net2 = [netket..., subnet1[2], subnet2[2], Usim]
+    subnet = [contract(net1), contract(net2)]
     # add the projector to the list projectors
     projectors = vcat(projectors, [U])
-    inds_dict[tree] = (dr,)
-    return nothing
+    return [dr], subnetsq, subnet
   end
-
   @assert (length(inds_btree) >= 2)
   bra = embedding[inds_btree]
   ket = sim(innerinds, bra, siminner_dict)
-  # left
+  # update children
   envnet = [closednet(inds_btree[2]), bra..., ket...]
-  upperenvs[inds_btree[1]] = contract((envnet))
-  insert_projectors(inds_btree[1])
-  # right
-  envnet = [closednets[inds_btree[1]], bra..., ket...]
-  upperenvs[inds_btree[2]] = contract((envnet))
-  insert_projectors(inds_btree[2])
+  _, netsq1, n1 = insert_projectors(inds_btree[1], contract(envnet))
+  envnet = [netsq1, bra..., ket...]
+  _, _, n2 = insert_projectors(inds_btree[2], contract(envnet))
   # last tensor
-  envnet = [opennets[inds_btree[1]][1], opennets[inds_btree[2]][1], bra...]
+  envnet = [n1[1], n2[1], bra...]
   last_tensor = contract((envnet))
   return vcat(projectors, [last_tensor])
 end
