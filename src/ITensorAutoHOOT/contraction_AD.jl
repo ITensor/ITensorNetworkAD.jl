@@ -14,6 +14,9 @@ function gradients(network::Array, in_tensors::Array)
 end
 
 function generate_optimal_tree(network::Array; path=nothing)
+  if length(network) == 1
+    return network
+  end
   nodes, dict = generate_einsum_expr([network])
   node = go.generate_optimal_tree(nodes[1]; path=path)
   return extract_network(node, dict)
