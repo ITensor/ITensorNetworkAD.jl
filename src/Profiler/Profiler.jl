@@ -40,10 +40,12 @@ macro profile(func)
     end
   end
 
-  return esc(quote
-    $func
-    $name = $_decorator($hiddenname)
-  end)
+  return esc(
+    quote
+      $func
+      $name = $_decorator($hiddenname)
+    end,
+  )
 end
 
 function profile_exit()
