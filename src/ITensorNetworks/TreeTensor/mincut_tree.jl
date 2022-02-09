@@ -1,9 +1,10 @@
 using Graphs, GraphsFlows, Combinatorics
+using ..Profiler
 
 # a large number to prevent this edge being a cut
 MAX_WEIGHT = 100000
 
-function graph_generation(network::Vector{ITensor}, uncontract_inds::Vector)
+@profile function graph_generation(network::Vector{ITensor}, uncontract_inds::Vector)
   edge_dict = Dict()
   # only go over contracted inds
   contract_edges = []
@@ -42,7 +43,7 @@ function graph_generation(network::Vector{ITensor}, uncontract_inds::Vector)
   return graph, capacity_matrix, edge_dict, grouped_uncontracted_inds
 end
 
-function inds_binary_tree(
+@profile function inds_binary_tree(
   network::Vector{ITensor}, uncontract_inds::Vector; algorithm="mincut"
 )
   graph, capacity_matrix, edge_dict, grouped_uncontracted_inds = graph_generation(
@@ -55,7 +56,7 @@ function inds_binary_tree(
   end
 end
 
-function mincut_subnetwork(
+@profile function mincut_subnetwork(
   network::Vector{ITensor}, sourceinds::Vector, uncontract_inds::Vector
 )
   if length(sourceinds) == length(uncontract_inds)
@@ -71,7 +72,7 @@ function mincut_subnetwork(
   return [network[i] for i in part1 if i <= length(network)]
 end
 
-function mincut_inds(
+@profile function mincut_inds(
   graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
 )
   # base case here

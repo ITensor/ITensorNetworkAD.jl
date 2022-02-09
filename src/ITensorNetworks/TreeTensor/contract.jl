@@ -27,19 +27,13 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   end
   uncontract_inds = noncommoninds(network...)
   inds_btree = inds_binary_tree(network, uncontract_inds; algorithm="mincut")
-  # t1 = time()
   # tree_approximation(network, inds_btree; cutoff=cutoff, maxdim=maxdim)
-  # t2 = time()
-  # print("tree approximation without caching runs ", t2 - t1, "s\n")
   i1 = noncommoninds(network...)
   embedding = tree_embedding(network, inds_btree)
   network = Vector{ITensor}(vcat(collect(values(embedding))...))
   i2 = noncommoninds(network...)
   @assert (length(i1) == length(i2))
-  t1 = time()
-  tree = tree_approximation(embedding, inds_btree; cutoff=cutoff, maxdim=maxdim)
-  t2 = time()
-  # print("tree approximation with caching runs ", t2 - t1, "s\n")
+  tree = tree_approximation_cache(embedding, inds_btree; cutoff=cutoff, maxdim=maxdim)
   out = TreeTensor(tree...)
   # print("output is ", out, "\n")
   return out
@@ -62,7 +56,9 @@ function uncontract_inds_binary_tree(tensor::ITensor, uncontract_inds::Vector)
 end
 
 # interlaced HOSVD using caching
-function tree_approximation(embedding::Dict, inds_btree::Vector; cutoff=1e-15, maxdim=10000)
+@profile function tree_approximation_cache(
+  embedding::Dict, inds_btree::Vector; cutoff=1e-15, maxdim=10000
+)
   projectors = []
   # initialize sim_dict
   network = vcat(collect(values(embedding))...)
@@ -128,7 +124,7 @@ function tree_approximation(embedding::Dict, inds_btree::Vector; cutoff=1e-15, m
 end
 
 ## implements interlaced HOSVD style truncation
-function tree_approximation(
+@profile function tree_approximation(
   network::Vector{ITensor}, inds_btree::Vector; cutoff=1e-15, maxdim=10000
 )
   # inds_dict map each inds_btree node to generated indices

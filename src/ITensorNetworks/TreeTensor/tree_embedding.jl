@@ -1,5 +1,4 @@
-# TODO: it sometimes doesn't handle the case with an isolated part.
-function tree_embedding(network::Vector{ITensor}, inds_btree::Vector)
+@profile function tree_embedding(network::Vector{ITensor}, inds_btree::Vector)
   # inds_dict map each inds_btree node to output indices at this node
   # tnets_dict map each inds_btree node to a tensor network
   inds_dict = Dict()
