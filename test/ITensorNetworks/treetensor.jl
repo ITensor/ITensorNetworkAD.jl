@@ -174,16 +174,17 @@ end
   @test isapprox(out1, out2)
 end
 
-function get_contracted_peps(tn, N; cutoff=1e-15, maxdim=1000)
-  t1 = time()
+@profile function peps_contraction_mpomps(tn, N; cutoff=1e-15, maxdim=1000)
   x = tn[:, 1]
   for i in 2:(N[2] - 1)
     A = tn[:, i]
     x = contract(MPO(A), MPS(x); cutoff=cutoff, maxdim=maxdim)[:]
   end
-  out = contract(x..., tn[:, N[2]]...)
-  t2 = time()
-  print("\n mpo-mps algorithms runs ", t2 - t1, "s\n")
+  return contract(x..., tn[:, N[2]]...)
+end
+
+function benchmark_peps_contraction(tn, N; cutoff=1e-15, maxdim=1000)
+  out = peps_contraction_mpomps(tn, N; cutoff=cutoff, maxdim=maxdim)
   network = SubNetwork(tn[:, 1])
   for i in 2:(N[2])
     network = SubNetwork(network, SubNetwork(tn[:, i]))
@@ -202,13 +203,13 @@ end
   tn = project_boundary(tn, state)
 
   ITensors.set_warn_order(100)
-  out_true, out2 = get_contracted_peps(tn, N; cutoff=cutoff, maxdim=linkdim^N[2])
+  out_true, out2 = benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=linkdim^N[2])
   print(out_true, out2)
   @test abs((out_true - out2) / out_true) < 1e-3
 
   maxdims = [10, 11, 12, 13, 14, 15, 16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
   for dim in maxdims
-    out, out2 = get_contracted_peps(tn, N; cutoff=cutoff, maxdim=dim)
+    out, out2 = benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
     error1 = abs((out - out_true) / out_true)
     error2 = abs((out2 - out_true) / out_true)
     print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
@@ -222,13 +223,13 @@ end
   cutoff = 1e-15
   tn_inds = inds_network(N...; linkdims=linkdim)
 
-  maxdims = [10, 11, 12, 13, 14, 15, 16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
-  for dim in maxdims
+  dim = 40
+  for i in 1:5
     tn = map(inds -> randomITensor(inds...), tn_inds)
     state = 1
     tn = project_boundary(tn, state)
     ITensors.set_warn_order(100)
-    out, out2 = get_contracted_peps(tn, N; cutoff=cutoff, maxdim=dim)
+    out, out2 = benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
   end
   profile_exit()
 end

@@ -1,3 +1,4 @@
+using ..Profiler
 const ad = AutoHOOT.autodiff
 
 function construct_gradient!(net_sum::NetworkSum, innodes::Array, feed_dict::Dict)
@@ -88,10 +89,17 @@ function batch_tensor_contraction(
   return out
 end
 
-function batch_tensor_contraction(
+@profile function batch_tensor_contraction_gentype(
   tensortype, trees::Vector{SubNetwork}, vars...; optimize=true, kwargs...
 )
   trees, vars = abstract_network(tensortype, trees, vars; kwargs...)
-  out = batch_tensor_contraction(Executor(trees; optimize=optimize), vars...; kwargs...)
-  return out
+  return batch_tensor_contraction(Executor(trees; optimize=optimize), vars...; kwargs...)
+end
+
+function batch_tensor_contraction(
+  tensortype, trees::Vector{SubNetwork}, vars...; optimize=true, kwargs...
+)
+  return batch_tensor_contraction_gentype(
+    tensortype, trees, vars...; optimize=optimize, kwargs...
+  )
 end

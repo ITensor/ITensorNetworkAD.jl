@@ -49,6 +49,29 @@ function compute_graph(out_nodes, node_dict; kwargs...)
   return compute_graph!(out_nodes, copy(node_dict); kwargs...)
 end
 
+function find_topo_sort(node_list, input_node_list=[])
+  visited = Set()
+  topo_order = []
+  for node in node_list
+    topo_sort_dfs(node, visited, topo_order, input_node_list)
+  end
+  return topo_order
+end
+
+function topo_sort_dfs(node, visited, topo_order, input_node_list)
+  #Post-order DFS
+  if node in visited
+    return nothing
+  end
+  push!(visited, node)
+  if !(node in input_node_list)
+    for n in node.inputs
+      topo_sort_dfs(n, visited, topo_order, input_node_list)
+    end
+  end
+  return append!(topo_order, [node])
+end
+
 """Extract an tensor network from an input network based on AutoHOOT einsum tree.
 The input network is defined by the tensors in node_dict.
 Note: this function ONLY extracts network based on the input nodes rather than einstr.
@@ -67,7 +90,7 @@ Example
 >>> [A_tensor, [B_tensor, C_tensor]]
 """
 function extract_network(out_node, node_dict)
-  topo_order = ad.find_topo_sort([out_node])
+  topo_order = find_topo_sort([out_node])
   node_dict = copy(node_dict)
   for node in topo_order
     if haskey(node_dict, node) == false && node.name != "1.0"
@@ -166,31 +189,22 @@ Returns
 node_list: An array of AutoHOOT nodes
 """
 function input_nodes_generation!(network::Array, node_dict::Dict)
-  node_list = []
-  for (i, tensor) in enumerate(network)
+  function get_node(tensor)
     node = retrieve_key(node_dict, tensor)
     if node == nothing
       node = update_dict!(node_dict, tensor)
     end
-    push!(node_list, node)
+    return node
   end
-  return node_list
+  return map(get_node, network)
 end
 
 function einstr_generation(network::Array)
-  index_dict = Dict{Index{Int64},Char}()
-  label_num = 0
+  indices = collect(Set(mapreduce(t -> collect(inds(t)), vcat, network)))
+  index_dict = Dict([ind => get_symbol(i) for (i, ind) in enumerate(indices)])
   string_list = []
-  # build input string
   for tensor in network
-    str = ""
-    for index in inds(tensor)
-      if haskey(index_dict, index) == false
-        index_dict[index] = get_symbol(label_num)
-        label_num += 1
-      end
-      str = str * index_dict[index]
-    end
+    str = join([index_dict[i] for i in inds(tensor)])
     push!(string_list, str)
   end
   instr = join(string_list, ",")

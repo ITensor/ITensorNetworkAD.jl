@@ -5,6 +5,7 @@ export @profile, do_profile, profile_exit
 _TIMEIT = false
 TIME_DICT = Dict()
 NUM_CALLS_DICT = Dict()
+DETAIL_INFO = false
 
 function do_profile(timeit=false)
   return global _TIMEIT = timeit
@@ -22,13 +23,16 @@ macro profile(func)
       out = f(args...; kwargs...)
       tend = time()
       dt = tend - tstart
-      @info "$(name) took [$(dt)] seconds"
+      if DETAIL_INFO
+        @info "$(name) took [$(dt)] seconds"
+      end
       if haskey(NUM_CALLS_DICT, name)
         NUM_CALLS_DICT[name] += 1
         TIME_DICT[name] += dt
       else
-        NUM_CALLS_DICT[name] = 1
-        TIME_DICT[name] = dt
+        # don't record the first iteration
+        NUM_CALLS_DICT[name] = 0
+        TIME_DICT[name] = 0
       end
       return out
     end
@@ -52,7 +56,7 @@ function profile_exit()
   if length(TIME_DICT) > 0
     @info "---profiling info---"
     for (funcname, time) in TIME_DICT
-      @info "Calling $(funcname) $(NUM_CALLS_DICT[funcname]) times, overall time [$(time)]."
+      @info "Calling $(funcname) $(NUM_CALLS_DICT[funcname]) times (first iteration excluded), overall time [$(time)]."
     end
   end
   global _TIMEIT = false

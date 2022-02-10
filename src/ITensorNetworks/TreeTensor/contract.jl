@@ -1,7 +1,7 @@
 using ..ITensorAutoHOOT
 using ..ITensorAutoHOOT: generate_optimal_tree
 
-optcontract(t_list::Vector{ITensor}) = contract(generate_optimal_tree(t_list))
+@profile optcontract(t_list::Vector{ITensor}) = contract(generate_optimal_tree(t_list))
 
 # contract into one ITensor
 ITensors.ITensor(t::TreeTensor; kwargs...) = contract(collect(t.tensors)...; kwargs...)
@@ -23,10 +23,10 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   end
   network = [t1.tensors..., t2.tensors...]
   if length(noncommoninds(network...)) <= 1
-    return TreeTensor(contract(network...))
+    return TreeTensor(optcontract(network))
   end
   uncontract_inds = noncommoninds(network...)
-  inds_btree = inds_binary_tree(network, uncontract_inds; algorithm="mincut")
+  inds_btree = inds_binary_tree(network, uncontract_inds; algorithm="mps")
   # tree_approximation(network, inds_btree; cutoff=cutoff, maxdim=maxdim)
   i1 = noncommoninds(network...)
   embedding = tree_embedding(network, inds_btree)
