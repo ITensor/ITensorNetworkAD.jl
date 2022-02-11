@@ -69,6 +69,7 @@ end
   part1, part2, mincut = mincut_value(
     graph, capacity_matrix, edge_dict, grouped_uncontracted_inds, grouped_sourceinds
   )
+  @assert length(part1) > 1
   return [network[i] for i in part1 if i <= length(network)]
 end
 
