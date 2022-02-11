@@ -1,28 +1,25 @@
 @profile function tree_embedding(network::Vector{ITensor}, inds_btree::Vector)
-  # inds_dict map each inds_btree node to output indices at this node
   # tnets_dict map each inds_btree node to a tensor network
-  inds_dict = Dict()
   tnets_dict = Dict()
   function embed(tree::Vector)
     if length(tree) == 1
       ind = tree[1]
       sim_dict = Dict([ind => sim(ind)])
-      inds_dict[tree] = Tuple([sim_dict[ind]])
       tnets_dict[tree] = [delta(ind, sim_dict[ind])]
       network = sim([ind], network, sim_dict)
-      return nothing
+      return Tuple([sim_dict[ind]])
     end
-    embed(tree[1])
-    embed(tree[2])
-    ind1, ind2 = inds_dict[tree[1]], inds_dict[tree[2]]
+    ind1 = embed(tree[1])
+    ind2 = embed(tree[2])
     network, outinds, tnets_dict[tree[1]], tnets_dict[tree[2]] = insert_deltas(
       network, ind1, ind2, tnets_dict[tree[1]], tnets_dict[tree[2]]
     )
     # use mincut to get the subnetwork
     subnetwork = mincut_subnetwork(network, outinds, noncommoninds(network...))
     network = collect(setdiff(network, subnetwork))
-    inds_dict[tree] = Tuple(setdiff(noncommoninds(subnetwork...), outinds))
-    return tnets_dict[tree] = subnetwork
+    # @info "$(tree), $(TreeTensor(subnetwork...))"
+    tnets_dict[tree] = subnetwork
+    return Tuple(setdiff(noncommoninds(subnetwork...), outinds))
   end
   @assert (length(inds_btree) >= 2)
   embed(inds_btree)
