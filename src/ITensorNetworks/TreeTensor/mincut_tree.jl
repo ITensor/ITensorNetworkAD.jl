@@ -69,6 +69,7 @@ end
   part1, part2, mincut = mincut_value(
     graph, capacity_matrix, edge_dict, grouped_uncontracted_inds, grouped_sourceinds
   )
+  @assert length(part1) > 1
   return [network[i] for i in part1 if i <= length(network)]
 end
 
@@ -194,8 +195,9 @@ function mincut_value(
     new_capacity_matrix[u, t] = MAX_WEIGHT
     new_capacity_matrix[t, u] = MAX_WEIGHT
   end
-  part1, part2, flow = GraphsFlows.mincut(
-    graph, s, t, new_capacity_matrix, EdmondsKarpAlgorithm()
+  # this t and s sequence makes sure part1 is the largest subgraph yielding mincut
+  part2, part1, flow = GraphsFlows.mincut(
+    graph, t, s, new_capacity_matrix, EdmondsKarpAlgorithm()
   )
   return part1, part2, flow
 end
