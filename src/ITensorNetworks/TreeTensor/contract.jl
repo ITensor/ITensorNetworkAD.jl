@@ -1,7 +1,25 @@
 using ..ITensorAutoHOOT
 using ..ITensorAutoHOOT: generate_optimal_tree
 
-@profile optcontract(t_list::Vector{ITensor}) = contract(generate_optimal_tree(t_list))
+c_tree(t::ITensor) = t
+c_delta(t1::ITensor, t2::ITensor) = t1 * t2
+function c_tree(t1::ITensor, t2::ITensor)
+  if t1.tensor.storage.data == 1.0 || t2.tensor.storage.data == 1.0
+    return c_delta(t1::ITensor, t2::ITensor)
+  end
+  return t1 * t2
+end
+
+function c_tree(tn::Vector)
+  if length(tn) == 1
+    return tn[1]
+  end
+  c_tree(c_tree(tn[1]), c_tree(tn[2]))
+end
+
+cv_tree(tn::Vector) = c_tree(tn)
+
+@profile optcontract(t_list::Vector{ITensor}) = cv_tree(generate_optimal_tree(t_list))
 
 # contract into one ITensor
 ITensors.ITensor(t::TreeTensor; kwargs...) = contract(collect(t.tensors)...; kwargs...)
@@ -35,7 +53,7 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   @assert (length(i1) == length(i2))
   tree = tree_approximation_cache(embedding, inds_btree; cutoff=cutoff, maxdim=maxdim)
   out = TreeTensor(tree...)
-  # print("output is ", out, "\n")
+  # @info "output is $(out)"
   return out
 end
 
@@ -86,25 +104,27 @@ end
       return inds_pair, optcontract([netbra..., netket...]), [tensor_bra, tensor_ket]
     end
     # update children
-    envnet = [env, closednet(tree[2]), netbra..., netket...]
+    subenvtensor = optcontract([env, netbra...])
+    envnet = [subenvtensor, closednet(tree[2]), netket...]
     ind1_pair, subnetsq1, subnet1 = insert_projectors(tree[1], optcontract(envnet))
-    envnet = [env, subnetsq1, netbra..., netket...]
+    envnet = [subenvtensor, subnetsq1, netket...]
     ind2_pair, _, subnet2 = insert_projectors(tree[2], optcontract(envnet))
     # compute the projector
     rinds = (ind1_pair[1], ind2_pair[1])
     linds = (ind1_pair[2], ind2_pair[2])
-    net = [env, netbra..., netket..., subnet1..., subnet2...]
+    net = [subenvtensor, netket..., subnet1..., subnet2...]
     tnormal = optcontract(net)
     diag, U = eigen(tnormal, linds, rinds; cutoff=cutoff, maxdim=maxdim, ishermitian=true)
     dr = commonind(diag, U)
     Usim = replaceinds(U, rinds => linds)
-    net = [netbra..., netket..., subnet1..., subnet2..., U, Usim]
-    subnetsq = optcontract(net)
     net1 = [netbra..., subnet1[1], subnet2[1], U]
-    dr_pair = (dr, sim(dr))
-    Usim = replaceinds(Usim, [dr_pair[1]] => [dr_pair[2]])
     net2 = [netket..., subnet1[2], subnet2[2], Usim]
-    subnet = [optcontract(net1), optcontract(net2)]
+    tensor1 = optcontract(net1)
+    tensor2 = replaceinds(tensor1, noncommoninds(net1...) => noncommoninds(net2...))
+    subnetsq = optcontract([tensor1, tensor2])
+    dr_pair = (dr, sim(dr))
+    tensor2 = replaceinds(tensor2, [dr_pair[1]] => [dr_pair[2]])
+    subnet = [tensor1, tensor2]
     # add the projector to the list projectors
     projectors = vcat(projectors, [U])
     return dr_pair, subnetsq, subnet

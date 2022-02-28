@@ -165,17 +165,18 @@ function generate_einsum_expr!(tree::SubNetwork, node_dict::Dict; optimize=false
   return optimize ? go.generate_optimal_tree(out) : out
 end
 
-function update_dict!(node_dict::Dict, tensor)
-  i = length(node_dict) + 1
-  if length(inds(tensor)) != 0
-    nodename = "tensor" * string(i)
-    shape = [space(index) for index in inds(tensor)]
-    node = ad.Variable(nodename; shape=shape)
-  else
-    node = ad.scalar(tensor[])
+function create_node(itensor, index)
+  if length(inds(itensor)) == 0
+    return ad.scalar(itensor[])
   end
-  node_dict[node] = tensor
-  return node
+  # check if the tensor represents an identity
+  if typeof(itensor) == ITensor && itensor.tensor.storage.data == 1.0
+    nodename = "I" * string(index)
+  else
+    nodename = "t" * string(index)
+  end
+  shape = [space(i) for i in inds(itensor)]
+  return ad.Variable(nodename; shape=shape)
 end
 
 """Generate AutoHOOT nodes based on tensors
@@ -192,7 +193,8 @@ function input_nodes_generation!(network::Array, node_dict::Dict)
   function get_node(tensor)
     node = retrieve_key(node_dict, tensor)
     if node == nothing
-      node = update_dict!(node_dict, tensor)
+      node = create_node(tensor, length(node_dict) + 1)
+      node_dict[node] = tensor
     end
     return node
   end

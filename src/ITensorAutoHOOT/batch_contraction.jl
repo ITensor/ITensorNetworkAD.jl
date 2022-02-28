@@ -16,7 +16,8 @@ end
 function vjps(executor::Executor, vars, vector)
   node_dict = copy(executor.feed_dict)
   for t in vector
-    update_dict!(node_dict, t)
+    node = create_node(t, length(node_dict) + 1)
+    node_dict[node] = t
   end
   # add vector to the executor
   @assert(length(vector) == length(executor))

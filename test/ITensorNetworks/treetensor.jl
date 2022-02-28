@@ -217,19 +217,90 @@ end
 end
 
 @testset "benchmark PEPS" begin
-  do_profile(true)
   N = (8, 8) #(12, 12)
   linkdim = 10
   cutoff = 1e-15
   tn_inds = inds_network(N...; linkdims=linkdim)
 
   dim = 40
-  for i in 1:5
+  # warmup
+  for i in 1:2
     tn = map(inds -> randomITensor(inds...), tn_inds)
     state = 1
     tn = project_boundary(tn, state)
     ITensors.set_warn_order(100)
-    out, out2 = benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
+    benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
+  end
+
+  do_profile(true)
+  for i in 1:3
+    tn = map(inds -> randomITensor(inds...), tn_inds)
+    state = 1
+    tn = project_boundary(tn, state)
+    ITensors.set_warn_order(100)
+    benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
   end
   profile_exit()
 end
+
+# using ITensorNetworkAD.ITensorNetworks: optcontract
+# using ITensorNetworkAD.ITensorAutoHOOT: generate_optimal_tree
+
+# @testset "performance test" begin
+#   i = Index(100, "i")
+#   j = Index(120, "j")
+#   k = Index(10, "k")
+#   l = Index(10, "l")
+#   m = Index(10, "m")
+#   n = Index(10, "n")
+#   o = Index(10, "o")
+#   j1 = Index(120, "j1")
+#   k1 = Index(10, "k1")
+
+#   for a in 1:100
+#     A = randomITensor(i, j, k)
+#     B = randomITensor(j, l, n)
+#     C = randomITensor(k, l, m, o)
+
+#     I1 = delta(j, j1)
+#     I2 = delta(k, k1)
+#     B1 = randomITensor(j1, l, n)
+#     C1 = randomITensor(k1, l, m, o)
+
+#     out2 = optcontract([A, B1, C1, I1, I2])
+#     opttree = generate_optimal_tree([A, B, C])
+#     t0 = time()
+#     out1 = contract(opttree)
+#     t1 = time()  
+#   end
+
+#   do_profile(true)
+#   sumt1 = 0
+#   sumt2 = 0
+
+#   for a in 1:800
+#     A = randomITensor(i, j, k)
+#     B = randomITensor(j, l, n)
+#     C = randomITensor(k, l, m, o)
+
+#     I1 = delta(j, j1)
+#     I2 = delta(k, k1)
+#     B1 = randomITensor(j1, l, n)
+#     C1 = randomITensor(k1, l, m, o)
+
+#     t0 = time()
+#     out2 = optcontract([A, B1, C1, I1, I2])
+#     t1 = time()
+#     sumt2 += t1 - t0
+#     @info "contract with delta $(sumt2)"
+
+#     opttree = generate_optimal_tree([A, B, C])
+#     t0 = time()
+#     out1 = contract(opttree)
+#     t1 = time()
+#     sumt1 += t1 - t0
+#     @info "contract without delta $(sumt1)"
+#   end
+
+#   profile_exit()
+# end
