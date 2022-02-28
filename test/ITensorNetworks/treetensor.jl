@@ -13,6 +13,8 @@ using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
 
+include("utils.jl")
+
 @testset "test TreeTensor" begin
   i = Index(2, "i")
   j = Index(3, "j")
@@ -172,15 +174,6 @@ end
   i2 = noncommoninds(network2...)
   @test (length(i1) == length(i2))
   @test isapprox(out1, out2)
-end
-
-@profile function peps_contraction_mpomps(tn, N; cutoff=1e-15, maxdim=1000)
-  x = tn[:, 1]
-  for i in 2:(N[2] - 1)
-    A = tn[:, i]
-    x = contract(MPO(A), MPS(x); cutoff=cutoff, maxdim=maxdim)[:]
-  end
-  return contract(x..., tn[:, N[2]]...)
 end
 
 function benchmark_peps_contraction(tn, N; cutoff=1e-15, maxdim=1000)
