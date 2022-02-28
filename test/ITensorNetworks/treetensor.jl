@@ -217,19 +217,28 @@ end
 end
 
 @testset "benchmark PEPS" begin
-  do_profile(true)
   N = (8, 8) #(12, 12)
   linkdim = 10
   cutoff = 1e-15
   tn_inds = inds_network(N...; linkdims=linkdim)
 
   dim = 40
-  for i in 1:5
+  # warmup
+  for i in 1:2
     tn = map(inds -> randomITensor(inds...), tn_inds)
     state = 1
     tn = project_boundary(tn, state)
     ITensors.set_warn_order(100)
-    out, out2 = benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
+    benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
+  end
+
+  do_profile(true)
+  for i in 1:3
+    tn = map(inds -> randomITensor(inds...), tn_inds)
+    state = 1
+    tn = project_boundary(tn, state)
+    ITensors.set_warn_order(100)
+    benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim)
   end
   profile_exit()
 end

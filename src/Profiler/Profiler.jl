@@ -30,9 +30,8 @@ macro profile(func)
         NUM_CALLS_DICT[name] += 1
         TIME_DICT[name] += dt
       else
-        # don't record the first iteration
-        NUM_CALLS_DICT[name] = 0
-        TIME_DICT[name] = 0
+        NUM_CALLS_DICT[name] = 1
+        TIME_DICT[name] = dt
       end
       return out
     end
@@ -56,7 +55,7 @@ function profile_exit()
   if length(TIME_DICT) > 0
     @info "---profiling info---"
     for (funcname, time) in TIME_DICT
-      @info "Calling $(funcname) $(NUM_CALLS_DICT[funcname]) times (first iteration excluded), overall time [$(time)]."
+      @info "Calling $(funcname) $(NUM_CALLS_DICT[funcname]) times, overall time [$(time)]."
     end
   end
   global _TIMEIT = false
