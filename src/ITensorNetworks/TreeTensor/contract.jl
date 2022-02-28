@@ -1,25 +1,7 @@
 using ..ITensorAutoHOOT
 using ..ITensorAutoHOOT: generate_optimal_tree
 
-c_tree(t::ITensor) = t
-c_delta(t1::ITensor, t2::ITensor) = t1 * t2
-function c_tree(t1::ITensor, t2::ITensor)
-  if t1.tensor.storage.data == 1.0 || t2.tensor.storage.data == 1.0
-    return c_delta(t1::ITensor, t2::ITensor)
-  end
-  return t1 * t2
-end
-
-function c_tree(tn::Vector)
-  if length(tn) == 1
-    return tn[1]
-  end
-  c_tree(c_tree(tn[1]), c_tree(tn[2]))
-end
-
-cv_tree(tn::Vector) = c_tree(tn)
-
-@profile optcontract(t_list::Vector{ITensor}) = cv_tree(generate_optimal_tree(t_list))
+@profile optcontract(t_list::Vector{ITensor}) = contract(generate_optimal_tree(t_list))
 
 # contract into one ITensor
 ITensors.ITensor(t::TreeTensor; kwargs...) = contract(collect(t.tensors)...; kwargs...)
