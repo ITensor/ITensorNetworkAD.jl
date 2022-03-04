@@ -10,6 +10,8 @@ function get_symbol(i::Int)
   return Char(i + 140)
 end
 
+is_delta(t) = (t.tensor.storage.data == 1.0)
+
 """
 Retrieve the key from the dictionary that maps AutoHOOT nodes
 to tensors. Returns Nothing if key not exists.
@@ -170,7 +172,7 @@ function create_node(itensor, index)
     return ad.scalar(itensor[])
   end
   # check if the tensor represents an identity
-  if typeof(itensor) == ITensor && itensor.tensor.storage.data == 1.0
+  if typeof(itensor) == ITensor && is_delta(itensor)
     nodename = "I" * string(index)
   else
     nodename = "t" * string(index)

@@ -1,7 +1,12 @@
 using ..ITensorAutoHOOT
 using ..ITensorAutoHOOT: generate_optimal_tree
 
-@profile optcontract(t_list::Vector{ITensor}) = contract(generate_optimal_tree(t_list))
+@profile function optcontract(t_list::Vector)
+  if length(t_list) == 0
+    return ITensor(1.0)
+  end
+  return contract(generate_optimal_tree(t_list))
+end
 
 # contract into one ITensor
 ITensors.ITensor(t::TreeTensor; kwargs...) = contract(collect(t.tensors)...; kwargs...)
@@ -15,8 +20,8 @@ end
 
 ITensors.contract(t_list::Vector{TreeTensor}; kwargs...) = contract(t_list...; kwargs...)
 
-function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
-  # print("\n inputs are ", t1, t2, "\n")
+function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim, maxsize=10^15)
+  # @info "inputs are $(t1), $(t2)"
   connect_inds = intersect(inds(t1), inds(t2))
   if length(connect_inds) <= 1
     return TreeTensor(t1.tensors..., t2.tensors...)
@@ -33,7 +38,9 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim)
   network = Vector{ITensor}(vcat(collect(values(embedding))...))
   i2 = noncommoninds(network...)
   @assert (length(i1) == length(i2))
-  tree = tree_approximation_cache(embedding, inds_btree; cutoff=cutoff, maxdim=maxdim)
+  tree = tree_approximation_cache(
+    embedding, inds_btree; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
+  )
   out = TreeTensor(tree...)
   # @info "output is $(out)"
   return out
@@ -57,7 +64,7 @@ end
 
 # interlaced HOSVD using caching
 @profile function tree_approximation_cache(
-  embedding::Dict, inds_btree::Vector; cutoff=1e-15, maxdim=10000
+  embedding::Dict, inds_btree::Vector; cutoff=1e-15, maxdim=10000, maxsize=10000
 )
   projectors = []
   # initialize sim_dict
@@ -66,23 +73,25 @@ end
   innerinds = mapreduce(t -> [i for i in inds(t)], vcat, network)
   innerinds = Vector(setdiff(innerinds, uncontractinds))
   siminner_dict = Dict([ind => sim(ind) for ind in innerinds])
+
   function closednet(tree)
     netbra = embedding[tree]
-    netket = sim(innerinds, netbra, siminner_dict)
+    netket = replaceinds(netbra, siminner_dict)
     if length(tree) == 1
       return optcontract(vcat(netbra, netket))
     end
     tleft, tright = closednet(tree[1]), closednet(tree[2])
     return optcontract(vcat(netbra, netket, [tleft], [tright]))
   end
+
   function insert_projectors(tree::Vector, env::ITensor)
     netbra = embedding[tree]
-    netket = sim(innerinds, netbra, siminner_dict)
+    netket = replaceinds(netbra, siminner_dict)
     if length(tree) == 1
       tensor_bra = optcontract(netbra)
-      tensor_ket = sim(innerinds, [tensor_bra], siminner_dict)[1]
+      tensor_ket = replaceinds([tensor_bra], siminner_dict)[1]
       inds_pair = (tree[1], sim(tree[1]))
-      tensor_ket = sim(tree, [tensor_ket], Dict([inds_pair[1] => inds_pair[2]]))[1]
+      tensor_ket = replaceinds([tensor_ket], Dict([inds_pair[1] => inds_pair[2]]))[1]
       return inds_pair, optcontract([netbra..., netket...]), [tensor_bra, tensor_ket]
     end
     # update children
@@ -94,9 +103,15 @@ end
     # compute the projector
     rinds = (ind1_pair[1], ind2_pair[1])
     linds = (ind1_pair[2], ind2_pair[2])
+    # to handle the corner cases where subnet1/subnet2 could be empty
+    netket = replaceinds(
+      netket, Dict([ind1_pair[1] => ind1_pair[2], ind2_pair[1] => ind2_pair[2]])
+    )
     net = [subenvtensor, netket..., subnet1..., subnet2...]
     tnormal = optcontract(net)
-    diag, U = eigen(tnormal, linds, rinds; cutoff=cutoff, maxdim=maxdim, ishermitian=true)
+    dim2 = floor(maxsize / (space(ind1_pair[1]) * space(ind2_pair[1])))
+    dim = min(maxdim, dim2)
+    diag, U = eigen(tnormal, linds, rinds; cutoff=cutoff, maxdim=dim, ishermitian=true)
     dr = commonind(diag, U)
     Usim = replaceinds(U, rinds => linds)
     net1 = [netbra..., subnet1[1], subnet2[1], U]
@@ -111,9 +126,10 @@ end
     projectors = vcat(projectors, [U])
     return dr_pair, subnetsq, subnet
   end
+
   @assert (length(inds_btree) >= 2)
   bra = embedding[inds_btree]
-  ket = sim(innerinds, bra, siminner_dict)
+  ket = replaceinds(bra, siminner_dict)
   # update children
   envnet = [closednet(inds_btree[2]), bra..., ket...]
   _, netsq1, n1 = insert_projectors(inds_btree[1], optcontract(envnet))
@@ -197,7 +213,7 @@ function get_projector(net_bra, outinds; cutoff, maxdim)
   for ind in outinds
     sim_dict[ind] = sim(ind)
   end
-  net_ket = sim(outinds, net_ket, sim_dict)
+  net_ket = replaceinds(net_ket, sim_dict)
   net_normal = vcat(net_bra, net_ket)
   tensor_normal = optcontract(net_normal)
   # use eig to factorize and get the projector

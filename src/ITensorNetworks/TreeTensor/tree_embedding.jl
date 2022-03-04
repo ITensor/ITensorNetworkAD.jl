@@ -1,12 +1,16 @@
+include("union_find.jl")
+
 @profile function tree_embedding(network::Vector{ITensor}, inds_btree::Vector)
   # tnets_dict map each inds_btree node to a tensor network
   tnets_dict = Dict()
   function embed(tree::Vector)
     if length(tree) == 1
+      # add delta to handle the case with two output edges neighboring to one tensor
+      # being split (MPS case with element grouping)
       ind = tree[1]
       sim_dict = Dict([ind => sim(ind)])
       tnets_dict[tree] = [delta(ind, sim_dict[ind])]
-      network = sim([ind], network, sim_dict)
+      network = replaceinds(network, sim_dict)
       return Tuple([sim_dict[ind]])
     end
     ind1 = embed(tree[1])
@@ -34,13 +38,45 @@
   end
   @assert (length(inds_btree) >= 2)
   embed(inds_btree)
+  return remove_deltas(tnets_dict)
+end
+
+is_delta(t) = (t.tensor.storage.data == 1.0)
+
+# remove deltas to improve the performance
+function remove_deltas(tnets_dict)
+  # only remove deltas in intermediate nodes
+  ks = filter(k -> (length(k) > 1), collect(keys(tnets_dict)))
+  network = vcat([tnets_dict[k] for k in ks]...)
+  # outinds will always be the roots in union-find
+  outinds = noncommoninds(network...)
+
+  deltas = filter(t -> is_delta(t), network)
+  inds_list = map(t -> collect(inds(t)), deltas)
+  deltainds = collect(Set(vcat(inds_list...)))
+  uf = UF(deltainds)
+  for t in deltas
+    i1, i2 = inds(t)
+    if i1 in outinds
+      connect(uf, i2, i1)
+    else
+      connect(uf, i1, i2)
+    end
+  end
+  sim_dict = Dict([ind => root(uf, ind) for ind in deltainds])
+  for k in ks
+    net = tnets_dict[k]
+    net = setdiff(net, deltas)
+    tnets_dict[k] = replaceinds(net, sim_dict)
+    # @info "$(k), $(TreeTensor(net...))"
+  end
   return tnets_dict
 end
 
 function split_deltas(inds, subnet)
   sim_dict = Dict([ind => sim(ind) for ind in inds])
   deltas = [delta(i, sim_dict[i]) for i in inds]
-  subnet = sim(inds, subnet, sim_dict)
+  subnet = replaceinds(subnet, sim_dict)
   return deltas, subnet, collect(values(sim_dict))
 end
 

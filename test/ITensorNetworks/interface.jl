@@ -80,9 +80,8 @@ end
   row, column, d, rank = 8, 8, 10, 60
   LTN = lattice(row, column, d)
   # warm-up
-  for _ in 1:2
-    get_contracted_peps(LTN, rank, [row, column])
-  end
+  get_contracted_peps(LTN, rank, [row, column])
+  @info "start benchmark"
   do_profile(true)
   for _ in 1:3
     get_contracted_peps(LTN, rank, [row, column])
