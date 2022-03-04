@@ -1,6 +1,9 @@
 using ITensors, Random, SweepContractor, ITensorNetworkAD
+using ITensorNetworkAD.Profiler
 using ITensorNetworkAD.ITensorNetworks: ITensor_networks, line_network, TreeTensor
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
+
+include("utils.jl")
 
 @testset "test the interface" begin
   LTN = LabelledTensorNetwork{Char}()
@@ -14,10 +17,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
   @test isapprox(out, contract(ITensor_networks(LTN))[])
 end
 
-@testset "test on 2D grid" begin
-  Random.seed!(1234)
-  ITensors.set_warn_order(100)
-  row, column, d = 8, 8, 2
+function lattice(row, column, d)
   LTN = LabelledTensorNetwork{Tuple{Int,Int}}()
   for i in 1:row, j in 1:column
     adj = Tuple{Int,Int}[]
@@ -27,38 +27,33 @@ end
     j < column && push!(adj, (i, j + 1))
     LTN[i, j] = Tensor(adj, randn(d * ones(Int, length(adj))...), i, j)
   end
+  return LTN
+end
+
+function get_contracted_peps(LTN, rank, N)
   tnet = ITensor_networks(LTN)
-  element_grouping = line_network(tnet)
-  tnet_mat = reshape(tnet, row, column)
-  line_grouping = SubNetwork(tnet_mat[:, 1])
-  for i in 2:column
-    line_grouping = SubNetwork(line_grouping, tnet_mat[:, i]...)
-  end
+  tnet_mat = reshape(tnet, N...)
+  out_mps = peps_contraction_mpomps(tnet_mat, N; cutoff=1e-15, maxdim=rank)
+  out = contract_w_sweep(LTN, rank)
+  out2 = contract_element_group(tnet, rank)
+  out3 = contract_line_group(tnet_mat, rank, N)
+  return out, ITensor(out2[1])[], ITensor(out3[1])[], out_mps[]
+end
 
-  function get_contracted_peps(rank)
-    x = tnet_mat[:, 1]
-    for i in 2:(column - 1)
-      A = tnet_mat[:, i]
-      x = contract(MPO(A), MPS(x); cutoff=1e-15, maxdim=rank)[:]
-    end
-    out_mps = contract(x..., tnet_mat[:, column]...)
-    sweep = sweep_contract(LTN, rank, rank; fast=true)
-    out = ldexp(sweep...)
-    out2 = batch_tensor_contraction(
-      TreeTensor, [element_grouping]; cutoff=1e-15, maxdim=rank
-    )
-    out3 = batch_tensor_contraction(
-      TreeTensor, [line_grouping]; cutoff=1e-15, maxdim=rank, optimize=false
-    )
-    return out, ITensor(out2[1])[], ITensor(out3[1])[], out_mps[]
-  end
+@testset "test on 2D grid" begin
+  Random.seed!(1234)
+  ITensors.set_warn_order(100)
+  row, column, d = 8, 8, 2
+  LTN = lattice(row, column, d)
 
-  out_true, out_element, out_line, out_mps = get_contracted_peps(d^(Int(row / 2)))
+  out_true, out_element, out_line, out_mps = get_contracted_peps(
+    LTN, d^(Int(row / 2)), [row, column]
+  )
   @test abs((out_true - out_element) / out_true) < 1e-3
   @test abs((out_true - out_line) / out_true) < 1e-3
   @test abs((out_true - out_mps) / out_true) < 1e-3
   for rank in [1, 2, 3, 4, 6, 8, 10, 12, 14, 15, 16]
-    out, out_element, out_line, out_mps = get_contracted_peps(rank)
+    out, out_element, out_line, out_mps = get_contracted_peps(LTN, rank, [row, column])
     error_sweepcontractor = abs((out - out_true) / out_true)
     error_element = abs((out_element - out_true) / out_true)
     error_line = abs((out_line - out_true) / out_true)
@@ -77,4 +72,19 @@ end
       "\n",
     )
   end
+end
+
+@testset "benchmark on 2D grid" begin
+  Random.seed!(1234)
+  ITensors.set_warn_order(100)
+  row, column, d, rank = 8, 8, 10, 60
+  LTN = lattice(row, column, d)
+  # warm-up
+  get_contracted_peps(LTN, rank, [row, column])
+  @info "start benchmark"
+  do_profile(true)
+  for _ in 1:3
+    get_contracted_peps(LTN, rank, [row, column])
+  end
+  profile_exit()
 end
