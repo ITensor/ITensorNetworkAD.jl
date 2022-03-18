@@ -51,9 +51,67 @@ end
   )
   if algorithm == "mincut"
     return mincut_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
+  elseif algorithm == "mincut-mps"
+    inds_tree = mincut_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
+    linear_tree = linearize(inds_tree, graph, capacity_matrix, edge_dict)
+    out_inds = linear_tree[1]
+    for i in 2:length(linear_tree)
+      out_inds = [out_inds, linear_tree[i]]
+    end
+    return out_inds
   elseif algorithm == "mps"
     return mps_inds(graph, capacity_matrix, edge_dict, grouped_uncontracted_inds)
   end
+end
+
+function linearize(
+  inds_tree::Vector, graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict
+)
+  get_dist(edge, distances) = distances.dists[edge_dict[edge][1]]
+  function get_boundary_dists(line, source)
+    first, last = line[1], line[end]
+    ds = dijkstra_shortest_paths(graph, source, capacity_matrix)
+    return get_dist(first, ds), get_dist(last, ds)
+  end
+
+  if length(inds_tree) == 1
+    return inds_tree
+  end
+  inds_tree[1] = linearize(inds_tree[1], graph, capacity_matrix, edge_dict)
+  inds_tree[2] = linearize(inds_tree[2], graph, capacity_matrix, edge_dict)
+  if length(inds_tree[1]) == 1 && length(inds_tree[2]) == 1
+    return inds_tree
+  end
+  if length(inds_tree[1]) == 1
+    source = edge_dict[inds_tree[1]][1]
+    dist_first, dist_last = get_boundary_dists(inds_tree[2], source)
+    if dist_last < dist_first
+      inds_tree[2] = reverse(inds_tree[2])
+    end
+    return [inds_tree[1], nds_tree[2]...]
+  end
+  if length(inds_tree[2]) == 1
+    source = edge_dict[inds_tree[2]][1]
+    dist_first, dist_last = get_boundary_dists(inds_tree[1], source)
+    if dist_last > dist_first
+      inds_tree[1] = reverse(inds_tree[1])
+    end
+    return [inds_tree[1]..., inds_tree[2]]
+  end
+  s1, s2 = edge_dict[inds_tree[1][1]][1], edge_dict[inds_tree[1][end]][1]
+  dist1_first, dist1_last = get_boundary_dists(inds_tree[2], s1)
+  dist2_first, dist2_last = get_boundary_dists(inds_tree[2], s2)
+  if min(dist1_first, dist1_last) < min(dist2_first, dist2_last)
+    inds_tree[1] = reverse(inds_tree[1])
+    if dist1_last < dist1_first
+      inds_tree[2] = reverse(inds_tree[2])
+    end
+  else
+    if dist2_last < dist2_first
+      inds_tree[2] = reverse(inds_tree[2])
+    end
+  end
+  return [inds_tree[1]..., inds_tree[2]...]
 end
 
 @profile function mincut_subnetwork(
@@ -76,6 +134,10 @@ end
 @profile function mincut_inds(
   graph::Graphs.DiGraph, capacity_matrix::Matrix, edge_dict::Dict, uncontract_inds::Vector
 )
+  graph = copy(graph)
+  capacity_matrix = copy(capacity_matrix)
+  edge_dict = copy(edge_dict)
+  uncontract_inds = copy(uncontract_inds)
   # base case here
   if length(uncontract_inds) <= 2
     return uncontract_inds

@@ -145,14 +145,19 @@ end
   k = Index(2, "k")
   l = Index(2, "l")
   m = Index(2, "m")
+  n = Index(2, "n")
+  o = Index(2, "o")
+  p = Index(2, "p")
 
-  T = randomITensor(i, j, k, l, m)
-  M = MPS(T, (i, j, k, l, m); cutoff=1e-5, maxdim=5)
+  T = randomITensor(i, j, k, l, m, n, o, p)
+  M = MPS(T, (i, j, k, l, m, n, o, p); cutoff=1e-5, maxdim=500)
   network = M[:]
 
-  out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mincut")
+  out = inds_binary_tree(network, [i, j, k, l, m, n, o, p]; algorithm="mincut")
   @test length(out) == 2
-  out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mps")
+  out = inds_binary_tree(network, [i, j, k, l, m, n, o, p]; algorithm="mincut-mps")
+  @test length(out) == 2
+  out = inds_binary_tree(network, [i, j, k, l, m, n, o, p]; algorithm="mps")
   @test length(out) == 2
 end
 
