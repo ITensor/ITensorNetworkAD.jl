@@ -1,6 +1,7 @@
 using ITensorNetworkAD.ITensorNetworks: ITensor_networks, line_network, TreeTensor
 
-@profile function peps_contraction_mpomps(tn, N; cutoff=1e-15, maxdim=1000)
+@profile function peps_contraction_mpomps(tn; cutoff=1e-15, maxdim=1000)
+  N = size(tn)
   x = tn[:, 1]
   for i in 2:(N[2] - 1)
     A = tn[:, i]
