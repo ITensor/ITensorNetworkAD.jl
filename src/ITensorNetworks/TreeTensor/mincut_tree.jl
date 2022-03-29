@@ -77,41 +77,41 @@ function linearize(
   if length(inds_tree) == 1
     return inds_tree
   end
-  inds_tree[1] = linearize(inds_tree[1], graph, capacity_matrix, edge_dict)
-  inds_tree[2] = linearize(inds_tree[2], graph, capacity_matrix, edge_dict)
-  if length(inds_tree[1]) == 1 && length(inds_tree[2]) == 1
-    return inds_tree
+  left = linearize(inds_tree[1], graph, capacity_matrix, edge_dict)
+  right = linearize(inds_tree[2], graph, capacity_matrix, edge_dict)
+  if length(left) == 1 && length(right) == 1
+    return [left, right]
   end
-  if length(inds_tree[1]) == 1
-    source = edge_dict[inds_tree[1]][1]
-    dist_first, dist_last = get_boundary_dists(inds_tree[2], source)
+  if length(left) == 1
+    source = edge_dict[left][1]
+    dist_first, dist_last = get_boundary_dists(right, source)
     if dist_last < dist_first
-      inds_tree[2] = reverse(inds_tree[2])
+      right = reverse(right)
     end
-    return [inds_tree[1], nds_tree[2]...]
+    return [left, right...]
   end
-  if length(inds_tree[2]) == 1
-    source = edge_dict[inds_tree[2]][1]
-    dist_first, dist_last = get_boundary_dists(inds_tree[1], source)
+  if length(right) == 1
+    source = edge_dict[right][1]
+    dist_first, dist_last = get_boundary_dists(left, source)
     if dist_last > dist_first
-      inds_tree[1] = reverse(inds_tree[1])
+      left = reverse(left)
     end
-    return [inds_tree[1]..., inds_tree[2]]
+    return [left..., right]
   end
-  s1, s2 = edge_dict[inds_tree[1][1]][1], edge_dict[inds_tree[1][end]][1]
-  dist1_first, dist1_last = get_boundary_dists(inds_tree[2], s1)
-  dist2_first, dist2_last = get_boundary_dists(inds_tree[2], s2)
+  s1, s2 = edge_dict[left[1]][1], edge_dict[left[end]][1]
+  dist1_first, dist1_last = get_boundary_dists(right, s1)
+  dist2_first, dist2_last = get_boundary_dists(right, s2)
   if min(dist1_first, dist1_last) < min(dist2_first, dist2_last)
-    inds_tree[1] = reverse(inds_tree[1])
+    left = reverse(left)
     if dist1_last < dist1_first
-      inds_tree[2] = reverse(inds_tree[2])
+      right = reverse(right)
     end
   else
     if dist2_last < dist2_first
-      inds_tree[2] = reverse(inds_tree[2])
+      right = reverse(right)
     end
   end
-  return [inds_tree[1]..., inds_tree[2]...]
+  return [left..., right...]
 end
 
 @profile function mincut_subnetwork(
