@@ -46,6 +46,13 @@ end
 @profile function inds_binary_tree(
   network::Vector{ITensor}, uncontract_inds::Vector; algorithm="mincut"
 )
+  if algorithm == "sequential-mps"
+    out_inds = [uncontract_inds[1]]
+    for i in 2:length(uncontract_inds)
+      out_inds = [out_inds, [uncontract_inds[i]]]
+    end
+    return out_inds
+  end
   graph, capacity_matrix, edge_dict, grouped_uncontracted_inds = graph_generation(
     network, uncontract_inds
   )

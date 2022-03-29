@@ -20,7 +20,9 @@ end
 
 ITensors.contract(t_list::Vector{TreeTensor}; kwargs...) = contract(t_list...; kwargs...)
 
-function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim, maxsize=10^15)
+function ITensors.contract(
+  t1::TreeTensor, t2::TreeTensor; cutoff, maxdim, maxsize=10^15, algorithm="mincut-mps"
+)
   # @info "inputs are $(t1), $(t2)"
   connect_inds = intersect(inds(t1), inds(t2))
   if length(connect_inds) <= 1
@@ -31,7 +33,7 @@ function ITensors.contract(t1::TreeTensor, t2::TreeTensor; cutoff, maxdim, maxsi
     return TreeTensor(optcontract(network))
   end
   uncontract_inds = noncommoninds(network...)
-  inds_btree = inds_binary_tree(network, uncontract_inds; algorithm="mincut-mps")
+  inds_btree = inds_binary_tree(network, uncontract_inds; algorithm=algorithm)
   # tree_approximation(network, inds_btree; cutoff=cutoff, maxdim=maxdim)
   i1 = noncommoninds(network...)
   embedding = tree_embedding(network, inds_btree)

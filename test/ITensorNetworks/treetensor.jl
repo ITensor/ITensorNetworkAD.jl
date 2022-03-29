@@ -234,35 +234,60 @@ end
   end
 end
 
-# @testset "test N-D cube" begin
-#   N = (4, 2, 4) #(12, 12)
-#   linkdim = 2
-#   nrows = prod([s for s in N[1:length(N) - 1]])
-#   ncols = N[length(N)]
-#   maxdim = linkdim^(floor(nrows))
+function benchmark_3D_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
+  out = tn[1]
+  @info length(tn)
+  for i in 2:length(tn)
+    out = contract(
+      out, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
+    )
+  end
+  out2 = tn[1]
+  for i in 2:length(tn)
+    out2 = contract(
+      out2, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mincut-mps"
+    )
+  end
+  return out[], out2[]
+end
 
-#   cutoff = 1e-15
-#   tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
-#   @info tn_inds
-#   tn = map(inds -> randomITensor(inds...), tn_inds)
-#   tn = reshape(tn, (nrows, ncols))
-#   @info size(tn)
+@testset "test N-D cube" begin
+  N = (3, 6, 4) #(12, 12)
+  linkdim = 2
+  nrows = prod([s for s in N[1:(length(N) - 1)]])
+  ncols = N[length(N)]
+  maxdim = linkdim^(floor(nrows))
 
-#   ITensors.set_warn_order(100)
-#   maxsize = maxdim * maxdim * linkdim
-#   out_true, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize)
-#   print(out_true, out2)
-#   @test abs((out_true - out2) / out_true) < 1e-3
+  cutoff = 1e-15
+  tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
+  tn = map(inds -> randomITensor(inds...), tn_inds)
+  # snake mapping
+  for k in 1:N[3]
+    for j in 1:N[2]
+      if iseven(j)
+        tn[:, j, k] = reverse(tn[:, j, k])
+      end
+    end
+  end
+  tn = reshape(tn, (nrows, ncols))
+  @info size(tn)
+  tn = [TreeTensor(tn[:, i]) for i in 1:ncols]
 
-#   maxdims = [10, 11, 12, 13, 14, 15, 16, 20, 31, 32] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
-#   for dim in maxdims
-#     size = dim * dim * linkdim
-#     out, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
-#     error1 = abs((out - out_true) / out_true)
-#     error2 = abs((out2 - out_true) / out_true)
-#     print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
-#   end
-# end
+  ITensors.set_warn_order(100)
+  maxsize = maxdim * maxdim * linkdim
+  out1, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize)
+  print(out1, out2)
+  @test abs((out1 - out2) / out1) < 1e-3
+
+  maxdims = [10, 11, 12, 13, 14, 15, 16, 20, 31, 32] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  for dim in maxdims
+    size = dim * dim * linkdim
+    out, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
+    error1 = abs((out - out1) / out1)
+    error2 = abs((out2 - out1) / out1)
+    print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
+  end
+end
 
 @testset "benchmark PEPS" begin
   N = (8, 8) #(12, 12)
