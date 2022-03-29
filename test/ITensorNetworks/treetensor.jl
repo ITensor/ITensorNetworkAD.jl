@@ -166,7 +166,7 @@ end
   linkdim = 2
   tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
   tn = map(inds -> randomITensor(inds...), tn_inds)
-  network = vec(tn[:,:, 1])
+  network = vec(tn[:, :, 1])
   out = inds_binary_tree(network, noncommoninds(network...); algorithm="mincut")
   @test length(out) == 2
   out = inds_binary_tree(network, noncommoninds(network...); algorithm="mincut-mps")
@@ -218,7 +218,9 @@ end
   ITensors.set_warn_order(100)
   maxdim = linkdim^N[2]
   maxsize = maxdim * maxdim * linkdim
-  out_true, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize)
+  out_true, out2 = benchmark_peps_contraction(
+    tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
+  )
   print(out_true, out2)
   @test abs((out_true - out2) / out_true) < 1e-3
 
@@ -230,6 +232,7 @@ end
     error2 = abs((out2 - out_true) / out_true)
     print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
   end
+end
 
 # @testset "test N-D cube" begin
 #   N = (4, 2, 4) #(12, 12)
