@@ -44,6 +44,23 @@ function boundary_projectors(tn::Matrix{ITensor}, state=1)
   return ψr, ψb
 end
 
+function boundary_projectors(tn::Array{ITensor,3}, state=1)
+  top = tn[1, :, :]
+  bottom = tn[end, :, :]
+  left = tn[:, 1, :]
+  right = tn[:, end, :]
+  front = tn[:, :, 1]
+  back = tn[:, :, end]
+  top_inds = commonind.(top, bottom)
+  left_inds = commonind.(left, right)
+  front_inds = commonind.(front, back)
+
+  psi_top = ITensors.state.(top_inds, state)
+  psi_left = ITensors.state.(left_inds, state)
+  psi_front = ITensors.state.(front_inds, state)
+  return psi_top, psi_left, psi_front
+end
+
 """
     project_boundary(tn::Matrix{ITensor}, state=1)
 
@@ -60,6 +77,30 @@ function project_boundary(tn::Matrix{ITensor}, state=1)
   for n in 1:Ny
     tn[1, n] = tn[1, n] * ψb[n]
     tn[end, n] = tn[end, n] * dag(ψb[n])
+  end
+  return tn
+end
+
+function project_boundary(tn::Array{ITensor,3}, state=1)
+  Nx, Ny, Nz = size(tn)
+  psi_top, psi_left, psi_front = boundary_projectors(tn, state)
+  for j in 1:Ny
+    for k in 1:Nz
+      tn[1, j, k] = tn[1, j, k] * psi_top[j, k]
+      tn[end, j, k] = tn[end, j, k] * psi_top[j, k]
+    end
+  end
+  for i in 1:Nx
+    for k in 1:Nz
+      tn[i, 1, k] = tn[i, 1, k] * psi_left[i, k]
+      tn[i, end, k] = tn[i, end, k] * psi_left[i, k]
+    end
+  end
+  for i in 1:Nx
+    for j in 1:Ny
+      tn[i, j, 1] = tn[i, j, 1] * psi_front[i, j]
+      tn[i, j, end] = tn[i, j, end] * psi_front[i, j]
+    end
   end
   return tn
 end

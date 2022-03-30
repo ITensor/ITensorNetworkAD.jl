@@ -8,7 +8,8 @@ using ITensorNetworkAD.ITensorNetworks:
   tree_approximation_cache,
   inds_binary_tree,
   tree_embedding
-using ITensorNetworkAD.ITensorNetworks: inds_network, project_boundary, Models
+using ITensorNetworkAD.ITensorNetworks:
+  inds_network, project_boundary, Models, ising_partition
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
@@ -145,14 +146,33 @@ end
   k = Index(2, "k")
   l = Index(2, "l")
   m = Index(2, "m")
+  n = Index(2, "n")
+  o = Index(2, "o")
+  p = Index(2, "p")
 
-  T = randomITensor(i, j, k, l, m)
-  M = MPS(T, (i, j, k, l, m); cutoff=1e-5, maxdim=5)
+  T = randomITensor(i, j, k, l, m, n, o, p)
+  M = MPS(T, (i, j, k, l, m, n, o, p); cutoff=1e-5, maxdim=500)
   network = M[:]
 
-  out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mincut")
+  out = inds_binary_tree(network, [i, j, k, l, m, n, o, p]; algorithm="mincut")
   @test length(out) == 2
-  out = inds_binary_tree(network, [i, j, k, l, m]; algorithm="mps")
+  out = inds_binary_tree(network, [i, j, k, l, m, n, o, p]; algorithm="mincut-mps")
+  @test length(out) == 2
+  out = inds_binary_tree(network, [i, j, k, l, m, n, o, p]; algorithm="mps")
+  @test length(out) == 2
+end
+
+@testset "test inds_binary_tree of a 2D network" begin
+  N = (8, 8, 3)
+  linkdim = 2
+  tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
+  tn = map(inds -> randomITensor(inds...), tn_inds)
+  network = vec(tn[:, :, 1])
+  out = inds_binary_tree(network, noncommoninds(network...); algorithm="mincut")
+  @test length(out) == 2
+  out = inds_binary_tree(network, noncommoninds(network...); algorithm="mincut-mps")
+  @test length(out) == 2
+  out = inds_binary_tree(network, noncommoninds(network...); algorithm="mps")
   @test length(out) == 2
 end
 
@@ -176,14 +196,15 @@ end
   @test isapprox(out1, out2)
 end
 
-function benchmark_peps_contraction(tn, N; cutoff=1e-15, maxdim=1000, maxsize=10^15)
-  out = peps_contraction_mpomps(tn, N; cutoff=cutoff, maxdim=maxdim)
+function benchmark_peps_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
+  N = size(tn)
+  out = peps_contraction_mpomps(tn; cutoff=cutoff, maxdim=maxdim)
   network = SubNetwork(tn[:, 1])
   for i in 2:(N[2])
     network = SubNetwork(network, SubNetwork(tn[:, i]))
   end
   out2 = batch_tensor_contraction(
-    TreeTensor, [network]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
+    TreeTensor, [network]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, optimize=false
   )
   return out[], ITensor(out2[1])[]
 end
@@ -192,26 +213,81 @@ end
   N = (8, 8) #(12, 12)
   linkdim = 2
   cutoff = 1e-15
-  tn_inds = inds_network(N...; linkdims=linkdim)
+  tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
   tn = map(inds -> randomITensor(inds...), tn_inds)
-  state = 1
-  tn = project_boundary(tn, state)
+  # tn = ising_partition(N, linkdim)
 
   ITensors.set_warn_order(100)
   maxdim = linkdim^N[2]
   maxsize = maxdim * maxdim * linkdim
   out_true, out2 = benchmark_peps_contraction(
-    tn, N; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
+    tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
   )
   print(out_true, out2)
   @test abs((out_true - out2) / out_true) < 1e-3
 
-  maxdims = [10, 11, 12, 13, 14, 15, 16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  maxdims = [i for i in 1:16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
   for dim in maxdims
     size = dim * dim * linkdim
-    out, out2 = benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim, maxsize=size)
+    out, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
     error1 = abs((out - out_true) / out_true)
     error2 = abs((out2 - out_true) / out_true)
+    print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
+  end
+end
+
+function benchmark_3D_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
+  out = tn[1]
+  @info length(tn)
+  for i in 2:length(tn)
+    out = contract(
+      out, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
+    )
+  end
+  out2 = tn[1]
+  for i in 2:length(tn)
+    out2 = contract(
+      out2, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mincut-mps"
+    )
+  end
+  return out[], out2[]
+end
+
+@testset "test N-D cube" begin
+  N = (3, 6, 4) #(12, 12)
+  linkdim = 2
+  nrows = prod([s for s in N[1:(length(N) - 1)]])
+  ncols = N[length(N)]
+  maxdim = linkdim^(floor(nrows))
+
+  cutoff = 1e-15
+  # tn = ising_partition(N, linkdim)
+  tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
+  tn = map(inds -> randomITensor(inds...), tn_inds)
+  # snake mapping
+  for k in 1:N[3]
+    for j in 1:N[2]
+      if iseven(j)
+        tn[:, j, k] = reverse(tn[:, j, k])
+      end
+    end
+  end
+  tn = reshape(tn, (nrows, ncols))
+  @info size(tn)
+  tn = [TreeTensor(tn[:, i]) for i in 1:ncols]
+
+  ITensors.set_warn_order(100)
+  maxsize = maxdim * maxdim * linkdim
+  out1, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize)
+  print(out1, out2)
+  @test abs((out1 - out2) / out1) < 1e-3
+
+  maxdims = [3, 5, 8, 10, 11, 12, 13, 14, 15, 16, 20, 31, 32] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  for dim in maxdims
+    size = dim * dim * linkdim
+    out, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
+    error1 = abs((out - out1) / out1)
+    error2 = abs((out2 - out1) / out1)
     print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
   end
 end
@@ -220,26 +296,22 @@ end
   N = (8, 8) #(12, 12)
   linkdim = 10
   cutoff = 1e-15
-  tn_inds = inds_network(N...; linkdims=linkdim)
+  tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
 
   dim = 20
   size = dim * dim * linkdim
   # warmup
   for i in 1:2
     tn = map(inds -> randomITensor(inds...), tn_inds)
-    state = 1
-    tn = project_boundary(tn, state)
     ITensors.set_warn_order(100)
-    benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim, maxsize=size)
+    benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
   end
 
   do_profile(true)
   for i in 1:3
     tn = map(inds -> randomITensor(inds...), tn_inds)
-    state = 1
-    tn = project_boundary(tn, state)
     ITensors.set_warn_order(100)
-    benchmark_peps_contraction(tn, N; cutoff=cutoff, maxdim=dim, maxsize=size)
+    benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
   end
   profile_exit()
 end
