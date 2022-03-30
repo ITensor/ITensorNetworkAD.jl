@@ -8,7 +8,8 @@ using ITensorNetworkAD.ITensorNetworks:
   tree_approximation_cache,
   inds_binary_tree,
   tree_embedding
-using ITensorNetworkAD.ITensorNetworks: inds_network, project_boundary, Models
+using ITensorNetworkAD.ITensorNetworks:
+  inds_network, project_boundary, Models, ising_partition
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
 const itensorah = ITensorNetworkAD.ITensorAutoHOOT
@@ -214,6 +215,7 @@ end
   cutoff = 1e-15
   tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
   tn = map(inds -> randomITensor(inds...), tn_inds)
+  # tn = ising_partition(N, linkdim)
 
   ITensors.set_warn_order(100)
   maxdim = linkdim^N[2]
@@ -224,7 +226,7 @@ end
   print(out_true, out2)
   @test abs((out_true - out2) / out_true) < 1e-3
 
-  maxdims = [10, 11, 12, 13, 14, 15, 16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  maxdims = [i for i in 1:16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
   for dim in maxdims
     size = dim * dim * linkdim
     out, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
@@ -259,6 +261,7 @@ end
   maxdim = linkdim^(floor(nrows))
 
   cutoff = 1e-15
+  # tn = ising_partition(N, linkdim)
   tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
   tn = map(inds -> randomITensor(inds...), tn_inds)
   # snake mapping
@@ -279,7 +282,7 @@ end
   print(out1, out2)
   @test abs((out1 - out2) / out1) < 1e-3
 
-  maxdims = [10, 11, 12, 13, 14, 15, 16, 20, 31, 32] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  maxdims = [3, 5, 8, 10, 11, 12, 13, 14, 15, 16, 20, 31, 32] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
   for dim in maxdims
     size = dim * dim * linkdim
     out, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
