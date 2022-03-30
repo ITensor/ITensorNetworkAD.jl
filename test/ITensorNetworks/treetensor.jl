@@ -237,23 +237,25 @@ end
 end
 
 function benchmark_3D_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
-  out = tn[1]
-  @info length(tn)
+  out = contract(
+    tn[1]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
+  )
   for i in 2:length(tn)
     out = contract(
       out, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
     )
   end
-  out2 = tn[1]
+  out2 = contract(tn[1]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mps")
   for i in 2:length(tn)
     out2 = contract(
-      out2, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mincut-mps"
+      out2, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mps"
     )
   end
   return out[], out2[]
 end
 
 @testset "test N-D cube" begin
+  do_profile(true)
   N = (3, 6, 4) #(12, 12)
   linkdim = 2
   nrows = prod([s for s in N[1:(length(N) - 1)]])
@@ -279,6 +281,7 @@ end
   ITensors.set_warn_order(100)
   maxsize = maxdim * maxdim * linkdim
   out1, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize)
+  profile_exit()
   print(out1, out2)
   @test abs((out1 - out2) / out1) < 1e-3
 

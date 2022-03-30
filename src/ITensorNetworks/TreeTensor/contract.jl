@@ -11,8 +11,6 @@ end
 # contract into one ITensor
 ITensors.ITensor(t::TreeTensor; kwargs...) = contract(collect(t.tensors)...; kwargs...)
 
-ITensors.contract(t1::TreeTensor; kwargs...) = t1
-
 function ITensors.contract(t1::TreeTensor, t2::TreeTensor...; kwargs...)
   ts = mapreduce(t -> t.tensors, vcat, t2)
   return contract(t1, TreeTensor(ts...); kwargs...)
@@ -29,6 +27,19 @@ function ITensors.contract(
     return TreeTensor(t1.tensors..., t2.tensors...)
   end
   network = [t1.tensors..., t2.tensors...]
+  return contract(
+    TreeTensor(network...);
+    cutoff=cutoff,
+    maxdim=maxdim,
+    maxsize=maxsize,
+    algorithm=algorithm,
+  )
+end
+
+function ITensors.contract(
+  t::TreeTensor; cutoff, maxdim, maxsize=10^15, algorithm="mincut-mps"
+)
+  network = t.tensors
   if length(noncommoninds(network...)) <= 1
     return TreeTensor(optcontract(network))
   end
