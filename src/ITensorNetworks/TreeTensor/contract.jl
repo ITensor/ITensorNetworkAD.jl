@@ -5,6 +5,9 @@ using ..ITensorAutoHOOT: generate_optimal_tree
   if length(t_list) == 0
     return ITensor(1.0)
   end
+  # for t in t_list
+  #   @info "size of t is", size(t)
+  # end
   return contract(generate_optimal_tree(t_list))
 end
 

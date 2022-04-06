@@ -226,7 +226,7 @@ end
   print(out_true, out2)
   @test abs((out_true - out2) / out_true) < 1e-3
 
-  maxdims = [i for i in 1:16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  maxdims = [i for i in 2:16]
   for dim in maxdims
     size = dim * dim * linkdim
     out, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
@@ -237,6 +237,7 @@ end
 end
 
 function benchmark_3D_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
+  # TODO: this sequential MPS doesn't give the desired tree when each tn[i] is a slice of the 2D surface
   out = contract(
     tn[1]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
   )
@@ -256,7 +257,7 @@ end
 
 @testset "test N-D cube" begin
   do_profile(true)
-  N = (3, 6, 4) #(12, 12)
+  N = (3, 3, 4) #(12, 12)
   linkdim = 2
   nrows = prod([s for s in N[1:(length(N) - 1)]])
   ncols = N[length(N)]
@@ -274,9 +275,11 @@ end
       end
     end
   end
+  # tn = reshape(tn, (N[1], N[2] * N[3]))
+  # tn = [TreeTensor(tn[:, i]) for i in 1:N[2] * N[3]]
   tn = reshape(tn, (nrows, ncols))
-  @info size(tn)
   tn = [TreeTensor(tn[:, i]) for i in 1:ncols]
+  @info size(tn)
 
   ITensors.set_warn_order(100)
   maxsize = maxdim * maxdim * linkdim
