@@ -1,6 +1,8 @@
 include("union_find.jl")
 
 @profile function tree_embedding(network::Vector{ITensor}, inds_btree::Vector)
+  deltas, networkprime, _ = split_deltas(noncommoninds(network...), network)
+  network = vcat(deltas, networkprime)
   # tnets_dict map each inds_btree node to a tensor network
   tnets_dict = Dict()
   function embed(tree::Vector)
@@ -57,7 +59,7 @@ function remove_deltas(tnets_dict)
   uf = UF(deltainds)
   for t in deltas
     i1, i2 = inds(t)
-    if i1 in outinds
+    if root(uf, i1) in outinds
       connect(uf, i2, i1)
     else
       connect(uf, i1, i2)

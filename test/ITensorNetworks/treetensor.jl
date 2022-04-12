@@ -7,7 +7,8 @@ using ITensorNetworkAD.ITensorNetworks:
   tree_approximation,
   tree_approximation_cache,
   inds_binary_tree,
-  tree_embedding
+  tree_embedding,
+  approximate_contract
 using ITensorNetworkAD.ITensorNetworks:
   inds_network, project_boundary, Models, ising_partition
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
@@ -226,7 +227,7 @@ end
   print(out_true, out2)
   @test abs((out_true - out2) / out_true) < 1e-3
 
-  maxdims = [i for i in 1:16] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  maxdims = [i for i in 2:16]
   for dim in maxdims
     size = dim * dim * linkdim
     out, out2 = benchmark_peps_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
@@ -237,29 +238,31 @@ end
 end
 
 function benchmark_3D_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
-  out = tn[1]
-  @info length(tn)
+  # TODO: this sequential MPS doesn't give the desired tree when each tn[i] is a slice of the 2D surface
+  out = contract(
+    tn[1]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
+  )
   for i in 2:length(tn)
     out = contract(
       out, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="sequential-mps"
     )
   end
-  out2 = tn[1]
+  out2 = contract(tn[1]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mps")
   for i in 2:length(tn)
     out2 = contract(
-      out2, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mincut-mps"
+      out2, tn[i]; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize, algorithm="mps"
     )
   end
   return out[], out2[]
 end
 
-@testset "test N-D cube" begin
-  N = (3, 6, 4) #(12, 12)
+@testset "test 3-D cube with 2D grouping" begin
+  do_profile(true)
+  N = (3, 3, 4) #(12, 12)
   linkdim = 2
   nrows = prod([s for s in N[1:(length(N) - 1)]])
   ncols = N[length(N)]
   maxdim = linkdim^(floor(nrows))
-
   cutoff = 1e-15
   # tn = ising_partition(N, linkdim)
   tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
@@ -273,16 +276,15 @@ end
     end
   end
   tn = reshape(tn, (nrows, ncols))
-  @info size(tn)
   tn = [TreeTensor(tn[:, i]) for i in 1:ncols]
-
+  @info size(tn)
   ITensors.set_warn_order(100)
   maxsize = maxdim * maxdim * linkdim
   out1, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize)
+  profile_exit()
   print(out1, out2)
   @test abs((out1 - out2) / out1) < 1e-3
-
-  maxdims = [3, 5, 8, 10, 11, 12, 13, 14, 15, 16, 20, 31, 32] #[2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+  maxdims = [3, 5, 8, 10, 11, 12, 13, 14, 15, 16, 20, 31, 32]
   for dim in maxdims
     size = dim * dim * linkdim
     out, out2 = benchmark_3D_contraction(tn; cutoff=cutoff, maxdim=dim, maxsize=size)
@@ -290,6 +292,26 @@ end
     error2 = abs((out2 - out1) / out1)
     print("maxdim, ", dim, ", error1, ", error1, ", error2, ", error2, "\n")
   end
+end
+
+@testset "test 3-D cube with 1D grouping" begin
+  ITensors.set_warn_order(100)
+  do_profile(true)
+  N = (3, 3, 3) # (5, 5, 5)
+  linkdim = 2
+  maxdim = linkdim^(floor(N[1] * N[2]))
+  cutoff = 1e-15
+  # tn = ising_partition(N, linkdim)
+  tn_inds = inds_network(N...; linkdims=linkdim, periodic=false)
+  tn = map(inds -> randomITensor(inds...), tn_inds)
+  tn = reshape(tn, (N[1], N[2] * N[3]))
+  tntree = tn[:, 1]
+  for i in 2:(N[2] * N[3])
+    tntree = [tntree, tn[:, i]]
+  end
+  approximate_contract(
+    tntree; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mincut"
+  )
 end
 
 @testset "benchmark PEPS" begin
