@@ -57,8 +57,12 @@ function TensorNetworkGraph(network::Vector{ITensor}, outinds::Vector{<:Index})
   return TensorNetworkGraph(network, graph, weights, out_edge_dict)
 end
 
-@profile function inds_binary_tree(
-  network::Vector{ITensor}, outinds=nothing; algorithm="mincut"
+function inds_binary_tree(network::Vector{ITensor}, outinds::Vector{<:Vector}; kwargs...)
+  return [inds_binary_tree(network, i; kwargs...) for i in outinds]
+end
+
+function inds_binary_tree(
+  network::Vector{ITensor}, outinds::Union{Nothing,Vector{<:Index}}; algorithm="mincut"
 )
   if outinds == nothing
     outinds = noncommoninds(network...)
@@ -146,6 +150,7 @@ end
   grouped_sourceinds = [[ind] for ind in sourceinds]
   part1, part2, mincut = mincut_value(tng, grouped_uncontracted_inds, grouped_sourceinds)
   @assert length(part1) > 1
+  @assert length(part2) > 1
   return [network[i] for i in part1 if i <= length(network)]
 end
 

@@ -48,17 +48,21 @@ function approximate_contract(
   maxsize=10^15,
   algorithm="mincut-mps",
 )
-  if length(noncommoninds(tn...)) <= 1
+  uncontract_inds = noncommoninds(tn...)
+  allinds = collect(Set(mapreduce(t -> collect(inds(t)), vcat, tn)))
+  innerinds = setdiff(allinds, uncontract_inds)
+  if length(uncontract_inds) <= 1
     return optcontract(tn)
   end
-  uncontract_inds = noncommoninds(tn...)
-  inds_btree = inds_binary_tree(tn, uncontract_inds; algorithm=algorithm)
+  if length(innerinds) <= length(tn) - 1
+    return tn
+  end
+  inds_btree = inds_binary_tree(tn, groupinds_tree; algorithm=algorithm)
   # tree_approximation(tn, inds_btree; cutoff=cutoff, maxdim=maxdim)
-  i1 = noncommoninds(tn...)
   embedding = tree_embedding(tn, inds_btree)
   tn = Vector{ITensor}(vcat(collect(values(embedding))...))
   i2 = noncommoninds(tn...)
-  @assert (length(i1) == length(i2))
+  @assert (length(uncontract_inds) == length(i2))
   tree = tree_approximation_cache(
     embedding, inds_btree; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
   )

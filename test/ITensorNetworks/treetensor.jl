@@ -295,8 +295,9 @@ end
 end
 
 @testset "test 3-D cube with 1D grouping" begin
+  ITensors.set_warn_order(100)
   do_profile(true)
-  N = (2, 2, 2)
+  N = (3, 3, 3) # (5, 5, 5)
   linkdim = 2
   maxdim = linkdim^(floor(N[1] * N[2]))
   cutoff = 1e-15
