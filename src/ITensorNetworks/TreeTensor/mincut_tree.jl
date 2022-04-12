@@ -44,7 +44,10 @@ MAX_WEIGHT = 100000
 end
 
 @profile function inds_binary_tree(
-  network::Vector{ITensor}, uncontract_inds::Vector; algorithm="mincut"
+  network::Vector{ITensor},
+  uncontract_inds::Vector;
+  algorithm="mincut",
+  groupinds_tree=nothing,
 )
   if algorithm == "sequential-mps"
     out_inds = [uncontract_inds[1]]
