@@ -52,9 +52,7 @@ function approximate_contract(
     return optcontract(tn)
   end
   uncontract_inds = noncommoninds(tn...)
-  inds_btree = inds_binary_tree(
-    tn, uncontract_inds; algorithm=algorithm, groupinds_tree=groupinds_tree
-  )
+  inds_btree = inds_binary_tree(tn, uncontract_inds; algorithm=algorithm)
   # tree_approximation(tn, inds_btree; cutoff=cutoff, maxdim=maxdim)
   i1 = noncommoninds(tn...)
   embedding = tree_embedding(tn, inds_btree)
