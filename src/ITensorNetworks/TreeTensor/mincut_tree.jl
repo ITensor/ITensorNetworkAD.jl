@@ -67,6 +67,9 @@ function inds_binary_tree(
   if outinds == nothing
     outinds = noncommoninds(network...)
   end
+  if length(outinds) == 1
+    return outinds
+  end
   if algorithm == "sequential-mps"
     out_inds = [outinds[1]]
     for i in 2:length(outinds)

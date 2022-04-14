@@ -34,7 +34,7 @@ end
 
 function ITensors.contract(t::TreeTensor; kwargs...)
   network = t.tensors
-  out = approximate_contract(network; kwargs...)
+  out, _ = approximate_contract(network; kwargs...)
   out = TreeTensor(out)
   # @info "output is $(out)"
   return out
@@ -52,10 +52,10 @@ function approximate_contract(
   allinds = collect(Set(mapreduce(t -> collect(inds(t)), vcat, tn)))
   innerinds = setdiff(allinds, uncontract_inds)
   if length(uncontract_inds) <= 1
-    return optcontract(tn)
+    return optcontract(tn), groupinds_tree
   end
   if length(innerinds) <= length(tn) - 1
-    return tn
+    return tn, groupinds_tree
   end
   inds_btree = inds_binary_tree(tn, groupinds_tree; algorithm=algorithm)
   # tree_approximation(tn, inds_btree; cutoff=cutoff, maxdim=maxdim)
@@ -66,16 +66,22 @@ function approximate_contract(
   tree = tree_approximation_cache(
     embedding, inds_btree; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
   )
-  return tree
+  return tree, inds_btree
 end
 
 vectorize(tn::ITensor) = [tn]
 
 vectorize(tn::Index) = [tn]
 
-vectorize(tn::Vector) = mapreduce(vectorize, vcat, tn)
+function vectorize(tn::Vector)
+  @assert tn != []
+  return mapreduce(vectorize, vcat, tn)
+end
 
 function get_subtree(tree, subset)
+  if tree == []
+    return []
+  end
   if all(x -> x isa Index, tree)
     return intersect(tree, subset)
   end
@@ -90,7 +96,31 @@ function get_subtree(tree, subset)
   return [t1, t2]
 end
 
+function substitute_tree(tree::Vector{<:Index}, ts...)
+  ts = filter(t -> t != [], ts)
+  @assert Set(tree) == Set(mapreduce(t -> vectorize(t), vcat, ts))
+  if length(ts) == 1
+    return ts[1]
+  end
+  return collect(ts)
+end
+
+function substitute_tree(tree::Vector{<:Vector}, ts...)
+  ts = filter(t -> t != [], ts)
+  @assert Set(vectorize(tree)) == Set(mapreduce(t -> vectorize(t), vcat, ts))
+  function substitute_vertex(v)
+    vec_v = vectorize(v)
+    subts = [get_subtree(t, vec_v) for t in ts]
+    subts = filter(t -> t != [], subts)
+    return substitute_tree(v, subts...)
+  end
+  return [substitute_vertex(v) for v in tree]
+end
+
 function approximate_contract(tn::Vector{<:Vector}, groupinds_tree=nothing; kwargs...)
+  if groupinds_tree == nothing
+    groupinds_tree = noncommoninds(vectorize(tn)...)
+  end
   @assert length(tn) == 2
   left_tn = vectorize(tn[1])
   right_tn = vectorize(tn[2])
@@ -98,22 +128,25 @@ function approximate_contract(tn::Vector{<:Vector}, groupinds_tree=nothing; kwar
   right_inds = noncommoninds(right_tn...)
   inter_inds = intersect(left_inds, right_inds)
   # form groupinds_tree of tn[1] and tn[2]
-  if groupinds_tree == nothing
-    tree_left = inter_inds
-    tree_right = inter_inds
+  tree_left = get_subtree(groupinds_tree, left_inds)
+  tree_left = tree_left == [] ? inter_inds : [tree_left, inter_inds]
+  tree_right = get_subtree(groupinds_tree, right_inds)
+  tree_right = tree_right == [] ? inter_inds : [tree_right, inter_inds]
+  @assert length(vectorize(tree_left)) == length(left_inds) &&
+    length(vectorize(tree_right)) == length(right_inds)
+  out_left, binarytree_left = approximate_contract(tn[1], tree_left; kwargs...)
+  out_right, binarytree_right = approximate_contract(tn[2], tree_right; kwargs...)
+  # remove inter_inds
+  binarytree_left = get_subtree(binarytree_left, setdiff(left_inds, inter_inds))
+  binarytree_right = get_subtree(binarytree_right, setdiff(right_inds, inter_inds))
+  if groupinds_tree == []
+    update_groupinds_tree = []
   else
-    tree_left = get_subtree(groupinds_tree, left_inds)
-    tree_left = tree_left == [] ? inter_inds : [tree_left, inter_inds]
-    tree_right = get_subtree(groupinds_tree, right_inds)
-    tree_right = tree_right == [] ? inter_inds : [tree_right, inter_inds]
+    update_groupinds_tree = substitute_tree(
+      groupinds_tree, binarytree_left, binarytree_right
+    )
   end
-  if length(vectorize(tree_left)) != length(left_inds) ||
-    length(vectorize(tree_right)) != length(right_inds)
-    @info "warning: if the out tensor is a scalar this is not correct"
-  end
-  out_left = approximate_contract(tn[1], tree_left; kwargs...)
-  out_right = approximate_contract(tn[2], tree_right; kwargs...)
-  return approximate_contract([out_left..., out_right...], groupinds_tree; kwargs...)
+  return approximate_contract([out_left..., out_right...], update_groupinds_tree; kwargs...)
 end
 
 function uncontract_inds_binary_tree(path::Vector, uncontract_inds::Vector)
