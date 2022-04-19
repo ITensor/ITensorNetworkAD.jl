@@ -25,7 +25,6 @@ function lattice(row, column, d)
     i < row && push!(adj, delabel[(i + 1, j)])
     j > 1 && push!(adj, delabel[(i, j - 1)])
     j < column && push!(adj, delabel[(i, j + 1)])
-    @info "adj of", i, j, "is", adj
     return adj
   end
   TN = TensorNetwork()
@@ -71,7 +70,6 @@ end
   @test abs((out_true - out_line) / out_true) < 1e-3
   @test abs((out_true - out_mps) / out_true) < 1e-3
   for rank in [1, 2, 3, 4, 6, 8, 10, 12, 14, 15, 16]
-    out, out_element, out_line = get_contracted_peps(LTN, rank, [row, column])
     out, out_element, out_line, out_mps = get_contracted_peps(LTN, rank, [row, column])
     error_sweepcontractor = abs((out - out_true) / out_true)
     error_element = abs((out_element - out_true) / out_true)
@@ -117,7 +115,6 @@ function cube_3d(L=3, d=2)
     j < L && push!(adj, delabel[(i, j + 1, k)])
     k > 1 && push!(adj, delabel[(i, j, k - 1)])
     k < L && push!(adj, delabel[(i, j, k + 1)])
-    @info "adj of", i, j, k, "is", adj
     return adj
   end
   TN = TensorNetwork()
@@ -154,7 +151,6 @@ end
   out = contract_w_sweep(TN, rank)
   tnet = ITensor_networks(TN)
   out2 = contract_element_group(tnet, rank)
-  @info out, out2
 
   do_profile(true)
   for _ in 1:3
@@ -162,7 +158,6 @@ end
     out = contract_w_sweep(TN, rank)
     tnet = ITensor_networks(TN)
     out2 = contract_element_group(tnet, rank)
-    @info out, out2
   end
   profile_exit()
 end
