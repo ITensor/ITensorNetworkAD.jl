@@ -120,23 +120,27 @@ function cube_3d(L=3, d=2)
   TN = TensorNetwork()
   delabel = Dict()
   index = 1
-  for i in 1:L, j in 1:L
-    ranges = iseven(i) ? (L:-1:1) : (1:L)
-    for k in ranges
-      delabel[(i, j, k)] = index
-      index += 1
+  for i in 1:L
+    ranges_j = iseven(i) ? (L:-1:1) : (1:L)
+    for j in ranges_j
+      ranges_k = iseven((i - 1) * L + j) ? (L:-1:1) : (1:L)
+      for k in ranges_k
+        delabel[(i, j, k)] = index
+        index += 1
+      end
     end
   end
-  for i in 1:L, j in 1:L
-    ranges = iseven(i) ? (L:-1:1) : (1:L)
-    for k in ranges
-      adj = build_adj(i, j, k)
-      push!(
-        TN,
-        Tensor(
+  for i in 1:L
+    ranges_j = iseven(i) ? (L:-1:1) : (1:L)
+    for j in ranges_j
+      ranges_k = iseven((i - 1) * L + j) ? (L:-1:1) : (1:L)
+      for k in ranges_k
+        adj = build_adj(i, j, k)
+        newt = Tensor(
           adj, randn(d * ones(Int, length(adj))...), i + 0.01 * randn(), j + 0.01 * randn()
-        ),
-      )
+        )
+        push!(TN, newt)
+      end
     end
   end
   return TN
