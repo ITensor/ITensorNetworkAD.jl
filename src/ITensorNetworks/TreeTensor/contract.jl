@@ -40,6 +40,8 @@ function ITensors.contract(t::TreeTensor; kwargs...)
   return out
 end
 
+approximate_contract(tn::ITensor, groupinds_tree; kwargs...) = [tn], groupinds_tree
+
 function approximate_contract(
   tn::Vector{ITensor},
   groupinds_tree=nothing;
@@ -54,6 +56,7 @@ function approximate_contract(
   if length(uncontract_inds) <= 1
     return optcontract(tn), groupinds_tree
   end
+  # cases where tn is a tree, or contains 2 disconnected trees
   if length(innerinds) <= length(tn) - 1
     return tn, groupinds_tree
   end
@@ -117,21 +120,29 @@ function substitute_tree(tree::Vector{<:Vector}, ts...)
   return [substitute_vertex(v) for v in tree]
 end
 
-function approximate_contract(tn::Vector{<:Vector}, groupinds_tree=nothing; kwargs...)
+function uncontractinds(tn)
+  if tn isa ITensor
+    return inds(tn)
+  else
+    return noncommoninds(vectorize(tn)...)
+  end
+end
+
+function approximate_contract(tn::Vector, groupinds_tree=nothing; kwargs...)
   if groupinds_tree == nothing
     groupinds_tree = noncommoninds(vectorize(tn)...)
   end
   @assert length(tn) == 2
-  left_tn = vectorize(tn[1])
-  right_tn = vectorize(tn[2])
-  left_inds = noncommoninds(left_tn...)
-  right_inds = noncommoninds(right_tn...)
+  left_inds = uncontractinds(tn[1])
+  right_inds = uncontractinds(tn[2])
   inter_inds = intersect(left_inds, right_inds)
   # form groupinds_tree of tn[1] and tn[2]
   tree_left = get_subtree(groupinds_tree, left_inds)
-  tree_left = tree_left == [] ? inter_inds : [tree_left, inter_inds]
   tree_right = get_subtree(groupinds_tree, right_inds)
-  tree_right = tree_right == [] ? inter_inds : [tree_right, inter_inds]
+  if inter_inds != []
+    tree_left = tree_left == [] ? inter_inds : [tree_left, inter_inds]
+    tree_right = tree_right == [] ? inter_inds : [tree_right, inter_inds]
+  end
   @assert length(vectorize(tree_left)) == length(left_inds) &&
     length(vectorize(tree_right)) == length(right_inds)
   out_left, binarytree_left = approximate_contract(tn[1], tree_left; kwargs...)

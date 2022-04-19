@@ -1,6 +1,7 @@
 using ITensors, Random, SweepContractor, ITensorNetworkAD
 using ITensorNetworkAD.Profiler
-using ITensorNetworkAD.ITensorNetworks: ITensor_networks, line_network, TreeTensor
+using ITensorNetworkAD.ITensorNetworks:
+  ITensor_networks, line_network, TreeTensor, approximate_contract
 using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, batch_tensor_contraction
 
 include("utils.jl")
@@ -18,16 +19,33 @@ include("utils.jl")
 end
 
 function lattice(row, column, d)
-  LTN = LabelledTensorNetwork{Tuple{Int,Int}}()
-  for i in 1:row, j in 1:column
-    adj = Tuple{Int,Int}[]
-    i > 1 && push!(adj, (i - 1, j))
-    j > 1 && push!(adj, (i, j - 1))
-    i < row && push!(adj, (i + 1, j))
-    j < column && push!(adj, (i, j + 1))
-    LTN[i, j] = Tensor(adj, randn(d * ones(Int, length(adj))...), i, j)
+  function build_adj(i, j)
+    adj = Vector{Int64}()
+    i > 1 && push!(adj, delabel[(i - 1, j)])
+    i < row && push!(adj, delabel[(i + 1, j)])
+    j > 1 && push!(adj, delabel[(i, j - 1)])
+    j < column && push!(adj, delabel[(i, j + 1)])
+    @info "adj of", i, j, "is", adj
+    return adj
   end
-  return LTN
+  TN = TensorNetwork()
+  delabel = Dict()
+  index = 1
+  for i in 1:row
+    ranges = iseven(i) ? (column:-1:1) : (1:column)
+    for j in ranges
+      delabel[(i, j)] = index
+      index += 1
+    end
+  end
+  for i in 1:row
+    ranges = iseven(i) ? (column:-1:1) : (1:column)
+    for j in ranges
+      adj = build_adj(i, j)
+      push!(TN, Tensor(adj, randn(d * ones(Int, length(adj))...), i, j))
+    end
+  end
+  return TN
 end
 
 function get_contracted_peps(LTN, rank, N)
@@ -37,7 +55,7 @@ function get_contracted_peps(LTN, rank, N)
   out = contract_w_sweep(LTN, rank)
   out2 = contract_element_group(tnet, rank)
   out3 = contract_line_group(tnet_mat, rank, N)
-  return out, ITensor(out2[1])[], ITensor(out3[1])[], out_mps[]
+  return out, out2[1][], ITensor(out3[1])[], out_mps[]
 end
 
 @testset "test on 2D grid" begin
@@ -53,6 +71,7 @@ end
   @test abs((out_true - out_line) / out_true) < 1e-3
   @test abs((out_true - out_mps) / out_true) < 1e-3
   for rank in [1, 2, 3, 4, 6, 8, 10, 12, 14, 15, 16]
+    out, out_element, out_line = get_contracted_peps(LTN, rank, [row, column])
     out, out_element, out_line, out_mps = get_contracted_peps(LTN, rank, [row, column])
     error_sweepcontractor = abs((out - out_true) / out_true)
     error_element = abs((out_element - out_true) / out_true)
@@ -85,6 +104,65 @@ end
   do_profile(true)
   for _ in 1:3
     get_contracted_peps(LTN, rank, [row, column])
+  end
+  profile_exit()
+end
+
+function cube_3d(L=3, d=2)
+  function build_adj(i, j, k)
+    adj = Vector{Int64}()
+    i > 1 && push!(adj, delabel[(i - 1, j, k)])
+    i < L && push!(adj, delabel[(i + 1, j, k)])
+    j > 1 && push!(adj, delabel[(i, j - 1, k)])
+    j < L && push!(adj, delabel[(i, j + 1, k)])
+    k > 1 && push!(adj, delabel[(i, j, k - 1)])
+    k < L && push!(adj, delabel[(i, j, k + 1)])
+    @info "adj of", i, j, k, "is", adj
+    return adj
+  end
+  TN = TensorNetwork()
+  delabel = Dict()
+  index = 1
+  for i in 1:L, j in 1:L
+    ranges = iseven(i) ? (L:-1:1) : (1:L)
+    for k in ranges
+      delabel[(i, j, k)] = index
+      index += 1
+    end
+  end
+  for i in 1:L, j in 1:L
+    ranges = iseven(i) ? (L:-1:1) : (1:L)
+    for k in ranges
+      adj = build_adj(i, j, k)
+      push!(
+        TN,
+        Tensor(
+          adj, randn(d * ones(Int, length(adj))...), i + 0.01 * randn(), j + 0.01 * randn()
+        ),
+      )
+    end
+  end
+  return TN
+end
+
+@testset "test on 3D cube" begin
+  Random.seed!(1234)
+  ITensors.set_warn_order(100)
+  L, d = 3, 2
+  rank = 16
+  TN = cube_3d(L, d)
+  out = contract_w_sweep(TN, rank)
+  tnet = ITensor_networks(TN)
+  out2 = contract_element_group(tnet, rank)
+  @info out, out2
+
+  do_profile(true)
+  for _ in 1:3
+    TN = cube_3d(L, d)
+    out = contract_w_sweep(TN, rank)
+    tnet = ITensor_networks(TN)
+    out2 = contract_element_group(tnet, rank)
+    @info out, out2
   end
   profile_exit()
 end
