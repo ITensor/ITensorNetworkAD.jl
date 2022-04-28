@@ -1,8 +1,11 @@
 using ChainRulesCore
 using ZygoteRules: @adjoint
+using Graphs, GraphsFlows, Combinatorics, SimpleWeightedGraphs
+using GraphRecipes, Plots
 
 using ..ITensorAutoHOOT
-using ..ITensorAutoHOOT: AbstractNetwork
+using ..ITensorAutoHOOT: AbstractNetwork, generate_optimal_tree
+using ..Profiler
 
 struct TreeTensor <: AbstractNetwork
   tensors::Vector{ITensor}
@@ -59,7 +62,9 @@ end
 
 ITensors.sum(t::TreeTensor; kwargs...) = t
 
+include("tensornetwork_graph.jl")
 include("tree_utils.jl")
 include("mincut_tree.jl")
 include("tree_embedding.jl")
 include("contract.jl")
+include("tree_approx_other_algs.jl")

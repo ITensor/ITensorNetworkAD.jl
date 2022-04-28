@@ -1,5 +1,3 @@
-using ..ITensorAutoHOOT
-using ..ITensorAutoHOOT: generate_optimal_tree
 
 ITensors.enable_contraction_sequence_optimization()
 

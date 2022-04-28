@@ -3,7 +3,6 @@ using AutoHOOT, ITensors, Zygote
 using ITensorNetworkAD.Profiler
 using ITensorNetworkAD.ITensorNetworks:
   TreeTensor,
-  uncontract_inds_binary_tree,
   tree_approximation,
   tree_approximation_cache,
   inds_binary_tree,
