@@ -1,6 +1,10 @@
 using ..ITensorAutoHOOT
 using ..ITensorAutoHOOT: generate_optimal_tree
 
+ITensors.enable_contraction_sequence_optimization()
+
+@profile myeigen(tnormal, linds, rinds; kwargs...) = eigen(tnormal, linds, rinds; kwargs...)
+
 @profile function optcontract(t_list::Vector)
   if length(t_list) == 0
     return ITensor(1.0)
@@ -34,17 +38,17 @@ end
 
 function ITensors.contract(t::TreeTensor; kwargs...)
   network = t.tensors
-  out, _ = approximate_contract(network; kwargs...)
+  out = approximate_contract(network; kwargs...)
   out = TreeTensor(out)
   # @info "output is $(out)"
   return out
 end
 
-approximate_contract(tn::ITensor, groupinds_tree; kwargs...) = [tn], groupinds_tree
+approximate_contract(tn::ITensor, inds_groups; kwargs...) = [tn]
 
 function approximate_contract(
   tn::Vector{ITensor},
-  groupinds_tree=nothing;
+  inds_groups=nothing;
   cutoff,
   maxdim,
   maxsize=10^15,
@@ -53,14 +57,20 @@ function approximate_contract(
   uncontract_inds = noncommoninds(tn...)
   allinds = collect(Set(mapreduce(t -> collect(inds(t)), vcat, tn)))
   innerinds = setdiff(allinds, uncontract_inds)
-  if length(uncontract_inds) <= 1
-    return optcontract(tn), groupinds_tree
+  if length(uncontract_inds) <= 2
+    return [optcontract(tn)]
   end
   # cases where tn is a tree, or contains 2 disconnected trees
   if length(innerinds) <= length(tn) - 1
-    return tn, groupinds_tree
+    return tn
   end
-  inds_btree = inds_binary_tree(tn, groupinds_tree; algorithm=algorithm)
+  # TODO: may want to remove this
+  if inds_groups != nothing
+    deltainds = vcat(filter(g -> length(g) > 1, inds_groups)...)
+    deltas, tnprime, _ = split_deltas(deltainds, tn)
+    tn = Vector{ITensor}(vcat(deltas, tnprime))
+  end
+  inds_btree = inds_binary_tree(tn, inds_groups; algorithm=algorithm)
   # tree_approximation(tn, inds_btree; cutoff=cutoff, maxdim=maxdim)
   embedding = tree_embedding(tn, inds_btree)
   tn = Vector{ITensor}(vcat(collect(values(embedding))...))
@@ -69,55 +79,7 @@ function approximate_contract(
   tree = tree_approximation_cache(
     embedding, inds_btree; cutoff=cutoff, maxdim=maxdim, maxsize=maxsize
   )
-  return tree, inds_btree
-end
-
-vectorize(tn::ITensor) = [tn]
-
-vectorize(tn::Index) = [tn]
-
-function vectorize(tn::Vector)
-  @assert tn != []
-  return mapreduce(vectorize, vcat, tn)
-end
-
-function get_subtree(tree, subset)
-  if tree == []
-    return []
-  end
-  if all(x -> x isa Index, tree)
-    return intersect(tree, subset)
-  end
-  t1 = get_subtree(tree[1], subset)
-  t2 = get_subtree(tree[2], subset)
-  if length(t1) == 0
-    return t2
-  end
-  if length(t2) == 0
-    return t1
-  end
-  return [t1, t2]
-end
-
-function substitute_tree(tree::Vector{<:Index}, ts...)
-  ts = filter(t -> t != [], ts)
-  @assert Set(tree) == Set(mapreduce(t -> vectorize(t), vcat, ts))
-  if length(ts) == 1
-    return ts[1]
-  end
-  return collect(ts)
-end
-
-function substitute_tree(tree::Vector{<:Vector}, ts...)
-  ts = filter(t -> t != [], ts)
-  @assert Set(vectorize(tree)) == Set(mapreduce(t -> vectorize(t), vcat, ts))
-  function substitute_vertex(v)
-    vec_v = vectorize(v)
-    subts = [get_subtree(t, vec_v) for t in ts]
-    subts = filter(t -> t != [], subts)
-    return substitute_tree(v, subts...)
-  end
-  return [substitute_vertex(v) for v in tree]
+  return tree
 end
 
 function uncontractinds(tn)
@@ -128,36 +90,24 @@ function uncontractinds(tn)
   end
 end
 
-function approximate_contract(tn::Vector, groupinds_tree=nothing; kwargs...)
-  if groupinds_tree == nothing
-    groupinds_tree = noncommoninds(vectorize(tn)...)
+function approximate_contract(tn::Vector, inds_groups=nothing; kwargs...)
+  if inds_groups == nothing
+    inds_groups = noncommoninds(vectorize(tn)...)
   end
   @assert length(tn) == 2
   left_inds = uncontractinds(tn[1])
   right_inds = uncontractinds(tn[2])
   inter_inds = intersect(left_inds, right_inds)
-  # form groupinds_tree of tn[1] and tn[2]
-  tree_left = get_subtree(groupinds_tree, left_inds)
-  tree_right = get_subtree(groupinds_tree, right_inds)
-  if inter_inds != []
-    tree_left = tree_left == [] ? inter_inds : [tree_left, inter_inds]
-    tree_right = tree_right == [] ? inter_inds : [tree_right, inter_inds]
-  end
-  @assert length(vectorize(tree_left)) == length(left_inds) &&
-    length(vectorize(tree_right)) == length(right_inds)
-  out_left, binarytree_left = approximate_contract(tn[1], tree_left; kwargs...)
-  out_right, binarytree_right = approximate_contract(tn[2], tree_right; kwargs...)
-  # remove inter_inds
-  binarytree_left = get_subtree(binarytree_left, setdiff(left_inds, inter_inds))
-  binarytree_right = get_subtree(binarytree_right, setdiff(right_inds, inter_inds))
-  if groupinds_tree == []
-    update_groupinds_tree = []
-  else
-    update_groupinds_tree = substitute_tree(
-      groupinds_tree, binarytree_left, binarytree_right
-    )
-  end
-  return approximate_contract([out_left..., out_right...], update_groupinds_tree; kwargs...)
+  # form inds_groups of tn[1] and tn[2]
+  inds_groups_left = subtree(inds_groups, left_inds)
+  inds_groups_right = subtree(inds_groups, right_inds)
+  inds_groups_left = merge_tree(inds_groups_left, inter_inds; append=true)
+  inds_groups_right = merge_tree(inds_groups_right, inter_inds; append=true)
+  @assert length(vectorize(inds_groups_left)) == length(left_inds) &&
+    length(vectorize(inds_groups_right)) == length(right_inds)
+  out_left = approximate_contract(tn[1], inds_groups_left; kwargs...)
+  out_right = approximate_contract(tn[2], inds_groups_right; kwargs...)
+  return approximate_contract([out_left..., out_right...], inds_groups; kwargs...)
 end
 
 function uncontract_inds_binary_tree(path::Vector, uncontract_inds::Vector)
@@ -225,7 +175,7 @@ end
     tnormal = optcontract(net)
     dim2 = floor(maxsize / (space(ind1_pair[1]) * space(ind2_pair[1])))
     dim = min(maxdim, dim2)
-    diag, U = eigen(tnormal, linds, rinds; cutoff=cutoff, maxdim=dim, ishermitian=true)
+    diag, U = myeigen(tnormal, linds, rinds; cutoff=cutoff, maxdim=dim, ishermitian=true)
     dr = commonind(diag, U)
     Usim = replaceinds(U, rinds => linds)
     net1 = [netbra..., subnet1[1], subnet2[1], U]

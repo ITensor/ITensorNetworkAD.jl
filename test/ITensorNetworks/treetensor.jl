@@ -199,7 +199,7 @@ end
 
 function benchmark_peps_contraction(tn; cutoff=1e-15, maxdim=1000, maxsize=10^15)
   N = size(tn)
-  out = peps_contraction_mpomps(tn; cutoff=cutoff, maxdim=maxdim)
+  out = peps_contraction_mpomps(tn; cutoff=cutoff, maxdim=maxdim, snake=false)
   network = SubNetwork(tn[:, 1])
   for i in 2:(N[2])
     network = SubNetwork(network, SubNetwork(tn[:, i]))
@@ -314,37 +314,38 @@ end
   )
 end
 
-@testset "test 3-D cube with DMRG-like algorithm" begin
-  ITensors.set_warn_order(100)
-  do_profile(true)
-  N = (5, 5, 3) # (5, 5, 5)
-  linkdim = 2
-  maxdim = linkdim^(floor(N[1] * N[2]))
-  cutoff = 1e-15
-  tn = ising_partition(N, linkdim)
-  function build_tree(i)
-    tree = tn[:, 1, i]
-    for j in 2:N[2]
-      tree = [tree, tn[:, j, i]]
-    end
-    return tree
-  end
-  tn1, _ = approximate_contract(
-    build_tree(1); cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
-  )
-  tn2, _ = approximate_contract(
-    build_tree(2); cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
-  )
-  tn3, _ = approximate_contract(
-    build_tree(3); cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
-  )
-  tn12, _ = approximate_contract(
-    [tn1..., tn2...]; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
-  )
-  out, _ = approximate_contract(
-    [tn12..., tn3...]; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
-  )
-end
+#TODO
+# @testset "test 3-D cube with DMRG-like algorithm" begin
+#   ITensors.set_warn_order(100)
+#   do_profile(true)
+#   N = (5, 5, 3) # (5, 5, 5)
+#   linkdim = 2
+#   maxdim = linkdim^(floor(N[1] * N[2]))
+#   cutoff = 1e-15
+#   tn = ising_partition(N, linkdim)
+#   function build_tree(i)
+#     tree = tn[:, 1, i]
+#     for j in 2:N[2]
+#       tree = [tree, tn[:, j, i]]
+#     end
+#     return tree
+#   end
+#   tn1, _ = approximate_contract(
+#     build_tree(1); cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
+#   )
+#   tn2, _ = approximate_contract(
+#     build_tree(2); cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
+#   )
+#   tn3, _ = approximate_contract(
+#     build_tree(3); cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
+#   )
+#   tn12, _ = approximate_contract(
+#     [tn1..., tn2...]; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
+#   )
+#   out, _ = approximate_contract(
+#     [tn12..., tn3...]; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
+#   )
+# end
 
 @testset "benchmark PEPS" begin
   N = (8, 8) #(12, 12)

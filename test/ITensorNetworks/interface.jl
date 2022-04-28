@@ -69,7 +69,7 @@ end
   @test abs((out_true - out_element) / out_true) < 1e-3
   @test abs((out_true - out_line) / out_true) < 1e-3
   @test abs((out_true - out_mps) / out_true) < 1e-3
-  for rank in [1, 2, 3, 4, 6, 8, 10, 12, 14, 15, 16]
+  for rank in [2, 3, 4, 6, 8, 10, 12, 14, 15, 16]
     out, out_element, out_line, out_mps = get_contracted_peps(LTN, rank, [row, column])
     error_sweepcontractor = abs((out - out_true) / out_true)
     error_element = abs((out_element - out_true) / out_true)
@@ -94,13 +94,14 @@ end
 @testset "benchmark on 2D grid" begin
   Random.seed!(1234)
   ITensors.set_warn_order(100)
-  row, column, d, rank = 8, 8, 10, 60
+  row, column, d, rank = 8, 8, 10, 10
   LTN = lattice(row, column, d)
   # warm-up
   get_contracted_peps(LTN, rank, [row, column])
   @info "start benchmark on 2D grid"
   do_profile(true)
   for _ in 1:3
+    LTN = lattice(row, column, d)
     get_contracted_peps(LTN, rank, [row, column])
   end
   profile_exit()
@@ -146,22 +147,23 @@ function cube_3d(L=3, d=2)
   return TN
 end
 
-@testset "test on 3D cube" begin
-  Random.seed!(1234)
-  ITensors.set_warn_order(100)
-  L, d = 3, 2
-  rank = 16
-  TN = cube_3d(L, d)
-  out = contract_w_sweep(TN, rank)
-  tnet = ITensor_networks(TN)
-  out2 = contract_element_group(tnet, rank)
+# TODO
+# @testset "test on 3D cube" begin
+#   Random.seed!(1234)
+#   ITensors.set_warn_order(100)
+#   L, d = 3, 2
+#   rank = 16
+#   TN = cube_3d(L, d)
+#   out = contract_w_sweep(TN, rank)
+#   tnet = ITensor_networks(TN)
+#   out2 = contract_element_group(tnet, rank)
 
-  do_profile(true)
-  for _ in 1:3
-    TN = cube_3d(L, d)
-    out = contract_w_sweep(TN, rank)
-    tnet = ITensor_networks(TN)
-    out2 = contract_element_group(tnet, rank)
-  end
-  profile_exit()
-end
+#   do_profile(true)
+#   for _ in 1:3
+#     TN = cube_3d(L, d)
+#     out = contract_w_sweep(TN, rank)
+#     tnet = ITensor_networks(TN)
+#     out2 = contract_element_group(tnet, rank)
+#   end
+#   profile_exit()
+# end
