@@ -11,6 +11,7 @@ using Test
     "itensor_network.jl",
     "projectors.jl",
     "interface.jl",
+    "tree.jl",
   ]
     println("Running $filename in ITensorNetworks.jl")
     include(filename)

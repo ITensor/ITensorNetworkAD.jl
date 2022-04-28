@@ -4,7 +4,6 @@ using SweepContractor: TensorNetwork, LabelledTensorNetwork
 using ..ITensorAutoHOOT: SubNetwork
 
 function ITensor_networks(TN::TensorNetwork)
-  SweepContractor.sort!(TN)
   index_dict = Dict()
   function itensor(i, t)
     # Construct indices
@@ -30,7 +29,7 @@ end
 
 function line_network(network::Vector)
   if length(network) <= 2
-    return SubNetwork(network)
+    return network
   end
-  return SubNetwork(line_network(network[1:(end - 1)]), network[end])
+  return [line_network(network[1:(end - 1)]), network[end]]
 end
