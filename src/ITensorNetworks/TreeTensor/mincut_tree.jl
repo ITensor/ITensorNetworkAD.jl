@@ -315,6 +315,8 @@ function mincut_value(tng::TensorNetworkGraph, split_inds::Vector)
     new_weights[t, u] = MAX_WEIGHT
   end
   # this t and s sequence makes sure part1 is the largest subgraph yielding mincut
-  part2, part1, flow = GraphsFlows.mincut(tng.graph, t, s, new_weights, EdmondsKarpAlgorithm())
+  part2, part1, flow = GraphsFlows.mincut(
+    tng.graph, t, s, new_weights, EdmondsKarpAlgorithm()
+  )
   return part1, part2, flow
 end
