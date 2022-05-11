@@ -98,7 +98,6 @@ function indsname(inds::Vector)
   return ""
 end
 
-# TODO: this function is still buggy
 function visualize(tng::TensorNetworkGraph)
   tng = copy(tng)
   insert_outedge_vertex!(tng::TensorNetworkGraph)
@@ -109,9 +108,15 @@ function visualize(tng::TensorNetworkGraph)
   edgelabel_dict = Dict{Tuple{Int,Int},String}()
   edgecolor_dict = Dict()
   for (inds, edge) in tng.inner_edge_dict
-    edgelabel_dict[(edge[1], edge[2])] =
-      indsname(inds) * "w=" * string(round(edge[3]; digits=2))
-    edgecolor_dict[(edge[1], edge[2])] = :black
+    if indsname(inds) == ""
+      edgelabel_dict[(edge[1], edge[2])] =
+        indsname(inds) * "w=" * string(round(edge[3]; digits=2))
+      edgecolor_dict[(edge[1], edge[2])] = :blue
+    else
+      edgelabel_dict[(edge[1], edge[2])] =
+        indsname(inds) * "w=" * string(round(edge[3]; digits=2))
+      edgecolor_dict[(edge[1], edge[2])] = :black
+    end
   end
   for (inds, edge) in tng.out_edge_dict
     edgelabel_dict[(edge[1], edge[2])] =

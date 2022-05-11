@@ -1,5 +1,5 @@
-using ITensorNetworkAD
-using ITensorNetworkAD.ITensorNetworks: TensorNetworkGraph, visualize
+using ITensors, ITensorNetworkAD
+using ITensorNetworkAD.ITensorNetworks: TensorNetworkGraph, visualize, inds_network
 
 N = (8, 8) #(12, 12)
 linkdim = 2
