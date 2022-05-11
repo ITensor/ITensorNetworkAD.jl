@@ -23,6 +23,7 @@ ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 [compat]
 ChainRulesCore = "1.10"
 Combinatorics = "1"
+GraphRecipes = "0.5"
 Graphs = "1"
 GraphsFlows = "0.1"
 ITensors = "0.2, 0.3"
