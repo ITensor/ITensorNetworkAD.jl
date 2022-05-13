@@ -50,7 +50,7 @@ end
 function get_contracted_peps(LTN, rank, N)
   tnet = ITensor_networks(LTN)
   tnet_mat = reshape(tnet, N...)
-  out_mps = peps_contraction_mpomps(tnet_mat; cutoff=1e-15, maxdim=rank)
+  out_mps = peps_contraction_mpomps(tnet_mat; cutoff=1e-15, maxdim=rank, snake=true)
   out = contract_w_sweep(LTN, rank)
   out2 = contract_element_group(tnet, rank)
   out3 = contract_line_group(tnet_mat, rank, N)

@@ -31,5 +31,5 @@ function line_network(network::Vector)
   if length(network) <= 2
     return network
   end
-  return [line_network(network[1:(end - 1)]), network[end]]
+  return [line_network(network[1:(end - 1)]), [network[end]]]
 end

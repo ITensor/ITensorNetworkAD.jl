@@ -88,24 +88,40 @@ function uncontractinds(tn)
   end
 end
 
-function approximate_contract(tn::Vector, inds_groups=nothing; kwargs...)
-  if inds_groups == nothing
-    inds_groups = noncommoninds(vectorize(tn)...)
+# TODO: modify this function
+function approximate_contract(
+  tn1::Vector{ITensor},
+  tn2::Vector{ITensor},
+  igs1::Vector{IndexGroup},
+  igs2::Vector{IndexGroup},
+  nset::Set{Vector{IndexGroup}};
+  kwargs...,
+)
+  igs = collect(Set([igs1..., igs2...]))
+  igs = setdiff(igs, intersect(igs1, igs2))
+  inds_groups = [i.data for i in igs]
+  return approximate_contract([tn1..., tn2...], inds_groups; kwargs...)
+end
+
+function approximate_contract(tn::Vector; kwargs...)
+  tn_tree_dict = Dict{Vector,Vector{ITensor}}()
+  tn_ig_dict, ig_neighbor_set = index_group_info(tn)
+  groups = get_leaves(tn)
+  for subtn in groups
+    tn_tree_dict[subtn] = subtn
   end
-  @assert length(tn) == 2
-  left_inds = uncontractinds(tn[1])
-  right_inds = uncontractinds(tn[2])
-  inter_inds = intersect(left_inds, right_inds)
-  # form inds_groups of tn[1] and tn[2]
-  inds_groups_left = subtree(inds_groups, left_inds)
-  inds_groups_right = subtree(inds_groups, right_inds)
-  inds_groups_left = merge_tree(inds_groups_left, inter_inds; append=true)
-  inds_groups_right = merge_tree(inds_groups_right, inter_inds; append=true)
-  @assert length(vectorize(inds_groups_left)) == length(left_inds) &&
-    length(vectorize(inds_groups_right)) == length(right_inds)
-  out_left = approximate_contract(tn[1], inds_groups_left; kwargs...)
-  out_right = approximate_contract(tn[2], inds_groups_right; kwargs...)
-  return approximate_contract([out_left..., out_right...], inds_groups; kwargs...)
+  contractions = find_topo_sort(tn, groups)
+  for c in contractions
+    tn_tree_dict[c] = approximate_contract(
+      tn_tree_dict[c[1]],
+      tn_tree_dict[c[2]],
+      tn_ig_dict[c[1]],
+      tn_ig_dict[c[2]],
+      ig_neighbor_set;
+      kwargs...,
+    )
+  end
+  return tn_tree_dict[contractions[end]]
 end
 
 # interlaced HOSVD using caching
