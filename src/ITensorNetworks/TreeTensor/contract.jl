@@ -88,40 +88,259 @@ function uncontractinds(tn)
   end
 end
 
-# TODO: modify this function
-function approximate_contract(
-  tn1::Vector{ITensor},
-  tn2::Vector{ITensor},
-  igs1::Vector{IndexGroup},
-  igs2::Vector{IndexGroup},
-  nset::Set{Vector{IndexGroup}};
-  kwargs...,
-)
-  igs = collect(Set([igs1..., igs2...]))
-  igs = setdiff(igs, intersect(igs1, igs2))
-  inds_groups = [i.data for i in igs]
-  return approximate_contract([tn1..., tn2...], inds_groups; kwargs...)
+# Note that the children ordering matters here.
+mutable struct IndexAdjacencyTree
+  children::Union{Vector{IndexAdjacencyTree}, IndexGroup}
+  fixed_direction::Bool
+  fixed_order::Bool
 end
 
-function approximate_contract(tn::Vector; kwargs...)
-  tn_tree_dict = Dict{Vector,Vector{ITensor}}()
-  tn_ig_dict, ig_neighbor_set = index_group_info(tn)
-  groups = get_leaves(tn)
-  for subtn in groups
-    tn_tree_dict[subtn] = subtn
+function IndexAdjacencyTree(index_group::IndexGroup)
+  return IndexAdjacencyTree(index_group, false, false)
+end
+
+function get_leaves(tree::IndexAdjacencyTree)
+  if tree.children isa IndexGroup
+    return [tree.children]
   end
-  contractions = find_topo_sort(tn, groups)
-  for c in contractions
-    tn_tree_dict[c] = approximate_contract(
-      tn_tree_dict[c[1]],
-      tn_tree_dict[c[2]],
-      tn_ig_dict[c[1]],
-      tn_ig_dict[c[2]],
-      ig_neighbor_set;
+  leaves = [get_leaves(c) for c in tree.children]
+  return vcat(leaves...)
+end
+
+function Base.contains(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
+  leaves = Set(get_leaves(adj_tree))
+  return issubset(adj_igs, leaves)
+end
+
+function Base.iterate(x::IndexAdjacencyTree)
+  return iterate(x, 1)
+end
+
+function Base.iterate(x::IndexAdjacencyTree, index)
+  if index > length(x.children)
+    return nothing
+  end
+  return x.children[index], index + 1
+end
+
+function boundary_state(ancestor::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
+  if ancestor.children isa IndexGroup
+    return "all"
+  end
+  if !ancestor.fixed_order
+    filter_children = filter(a -> contains(a, adj_igs), ancestor.children)
+    @assert length(filter_children) <= 1 
+    if length(filter_children) == 1
+      return "middle"
+    elseif Set(get_leaves(ancestor)) == adj_igs
+      return "all"
+    else
+      return "invalid"
+    end 
+  end
+  @assert length(ancestor.children) >= 2
+  if contains(ancestor.children[1], adj_igs)
+    return "left"
+  elseif contains(ancestor.children[end], adj_igs)
+    return "right"
+  elseif Set(get_leaves(ancestor)) == adj_igs
+    return "all"
+  else
+    return "invalid"
+  end
+end
+
+"""
+reorder adj_tree based on adj_igs
+"""
+function reorder!(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup}; boundary="right")
+  @assert boundary in ["left", "right"]
+  adj_trees = find_topo_sort(adj_tree)
+  ancestors = [tree for tree in adj_trees if contains(tree, adj_igs)]
+  ancester_to_state = Dict{IndexAdjacencyTree, String}()
+  # get the boundary state
+  for ancestor in ancestors
+    state = boundary_state(ancestor, adj_igs)
+    if state == "invalid"
+      return false
+    end
+    ancester_to_state[ancestor] = state
+  end
+  # update ancestors
+  for ancestor in ancestors
+    if ancester_to_state[ancestor] == "left"
+      ancestor.children = reverse(ancestor.children)
+    elseif ancester_to_state[ancestor] == "middle"
+      @assert ancestor.fixed_order == false
+      filter_children = filter(a -> contains(a, adj_igs), ancestor.children)
+      new_child1 = IndexAdjacencyTree(setdiff(ancestor.children, filter_children), false, false)
+      new_child2 = IndexAdjacencyTree(filter_children, false, false)
+      ancestor.children = [new_child1, new_child2]
+      ancestor.fixed_order = true
+    end
+  end
+  # check boundary
+  if boundary == "left"
+    for ancestor in ancestors
+      ancestor.children = reverse(ancestor.children)
+    end
+  end
+end
+
+"""
+Update both keys and values in igs_to_adjacency_tree based on list_adjacent_igs
+"""
+function update_igs_to_adjacency_tree!(list_adjacent_igs::Vector, igs_to_adjacency_tree::Dict{Set{IndexGroup}, IndexAdjacencyTree})
+  function update!(root_igs, adjacent_igs)
+    if !haskey(root_igs_to_adjacent_igs, root_igs)
+      root_igs_to_adjacent_igs[root_igs] = adjacent_igs
+    else
+      val = root_igs_to_adjacent_igs[root_igs]
+      root_igs_to_adjacent_igs[root_igs] = union(val, adjacent_igs)
+    end
+  end
+  # get each root igs, get the adjacent igs needed. TODO: do we need to consider boundaries here?
+  root_igs_to_adjacent_igs = Dict{Set{IndexGroup}, Set{IndexGroup}}()
+  for adjacent_igs in list_adjacent_igs
+    for root_igs in keys(igs_to_adjacency_tree)
+      if issubset(adjacent_igs, root_igs)
+        update!(root_igs, adjacent_igs)
+      end
+    end
+  end
+  if length(root_igs_to_adjacent_igs) == 1
+    return
+  end
+  # if at least 3: for now just put everything together
+  if length(root_igs_to_adjacent_igs) >= 3
+    root_igs = keys(root_igs_to_adjacent_igs)
+    root = union(root_igs...)
+    igs_to_adjacency_tree[root] = IndexAdjacencyTree([igs_to_adjacency_tree[r] for r in root_igs], false, false)
+    for r in root_igs
+      delete!(igs_to_adjacency_tree, r)
+    end
+  end
+  # if 2: assign adjacent_igs to boundary of root_igs (if possible), then concatenate
+  igs1, igs2 = collect(keys(root_igs_to_adjacent_igs))
+  reordered_1 = reorder!(igs_to_adjacency_tree[igs1], root_igs_to_adjacent_igs[igs1]; boundary="right")
+  reordered_2 = reorder!(igs_to_adjacency_tree[igs2], root_igs_to_adjacent_igs[igs2]; boundary="left")
+  adj_tree_1 = igs_to_adjacency_tree[igs1]
+  adj_tree_2 = igs_to_adjacency_tree[igs2]
+  if (!reordered_1) && (!reordered_2)
+    out_adj_tree = IndexAdjacencyTree([adj_tree_1, adj_tree_2], false, false)
+  elseif (!reordered_1)
+    out_adj_tree = IndexAdjacencyTree([adj_tree_1, adj_tree_2.children...], false, true)
+  elseif (!reordered_2)
+    out_adj_tree = IndexAdjacencyTree([adj_tree_1.children..., adj_tree_2], false, true)
+  else
+    out_adj_tree = IndexAdjacencyTree([adj_tree_1.children..., adj_tree_2.children...], false, true)
+  end
+  root = union(root_igs...)
+  igs_to_adjacency_tree[root] = out_adj_tree
+  for r in root_igs
+    delete!(igs_to_adjacency_tree, r)
+  end
+end
+
+"""
+Generate the adjacency tree of a contraction tree
+Args:
+==========
+ctree: the input contraction tree
+ancestors: ancestor ctrees of the input ctree
+ctree_to_igs: mapping each ctree to neighboring index groups 
+"""
+function generate_adjacency_tree(ctree, ancestors, ctree_to_igs)
+  # mapping each index group to adjacent input igs
+  ig_to_adjacent_igs = Dict{IndexGroup,Set{IndexGroup}}()
+  # mapping each igs to an adjacency tree
+  igs_to_adjacency_tree = Dict{Set{IndexGroup}, IndexAdjacencyTree}()
+  for ig in ctree_to_igs[ctree]
+    ig_to_adjacent_igs[ig] = Set(ig)
+    igs_to_adjacency_tree[Set(ig)] = IndexAdjacencyTree(ig)
+  end
+  for a in ancestors
+    inter_igs = intersect(ctree_to_igs[a[1]], ctree_to_igs[a[2]])
+    if ctree in a[1]
+      new_igs = setdiff(ctree_to_igs[a[2]], inter_igs)
+    else
+      new_igs = setdiff(ctree_to_igs[a[1]], inter_igs)
+    end
+    # Tensor product is not considered for now
+    @assert length(inter_igs) >= 1
+    list_adjacent_igs = [ig_to_adjacent_igs[ig] for ig in inter_igs]
+    update_igs_to_adjacency_tree!(list_adjacent_igs, igs_to_adjacency_tree)
+    for ig in new_igs
+      ig_to_adjacent_igs[ig] = union(list_adjacent_igs...)
+    end
+    if length(igs_to_adjacency_tree) == 1
+      return collect(values(igs_to_adjacency_tree))[1]
+    end
+  end
+end
+
+# ctree: contraction tree
+# tn: vector of tensors representing a tensor network
+# adj_tree: index adjacency tree
+# ig: index group
+# ig_tree: an index group with a tree hierarchy 
+function approximate_contract(ctree::Vector; kwargs...)
+  index_groups = get_index_groups(ctree)
+  tn_leaves = get_leaves(ctree)
+  ctrees = find_topo_sort(ctree, tn_leaves)
+  # mapping each contraction tree to its uncontracted index groups
+  ctree_to_igs = Dict{Vector,Vector{IndexGroup}}()
+  for c in vcat(tn_leaves, ctrees)
+    ctree_to_igs[c] = neighbor_index_groups(c, index_groups)
+  end
+  # mapping each contraction tree to its index adjacency tree
+  ctree_to_adj_tree = Dict{Vector,IndexAdjacencyTree}()
+  for leaf in tn_leaves
+    ancestors = [a for a in ctrees if (leaf in a && leaf != a)]
+    # TODO: implement this
+    ctree_to_adj_tree[leaf] = generate_adjacency_tree(
+      leaf,
+      ancestors,
+      ctree_to_igs
+    )
+  end
+  # mapping each contraction tree to a tensor network
+  ctree_to_tn = Dict{Vector,Vector{ITensor}}()
+  for leaf in tn_leaves
+    ctree_to_tn[leaf] = leaf
+  end
+  # mapping each index group to the index group tree
+  ig_to_ig_tree = Dict{IndexGroup,IndexGroup}()
+  for leaf in tn_leaves
+    for ig in ctree_to_igs[leaf]
+      if !haskey(ig_to_ig_tree, ig)
+        # TODO: implement this
+        ig_to_ig_tree[ig] = construct_index_group_tree(ig, leaf)
+      end 
+    end 
+  end
+  for c in ctrees
+    ancestors = [a for a in ctrees if (c in a && c != a)]
+    adj_tree = generate_adjacency_tree(
+      c,
+      ancestors,
+      ctree_to_igs
+    )
+    # TODO: get the input line ordering
+    ctree_to_adj_tree[c] = minswap_adjacency_tree(
+      adj_tree,
+      ctree_to_adj_tree[c[1]],
+      ctree_to_adj_tree[c[2]]
+    )
+    # TODO: implement this
+    ctree_to_tn[c] = approximate_contract(
+      vcat(ctree_to_tn[c[1]], ctree_to_tn[c[2]]),
+      ctree_to_adj_tree[c],
+      ig_to_ig_tree;
       kwargs...,
     )
   end
-  return tn_tree_dict[contractions[end]]
+  return ctree_to_tn[ctrees[end]]
 end
 
 # interlaced HOSVD using caching
