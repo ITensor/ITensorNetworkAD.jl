@@ -19,5 +19,5 @@ end
 @testset "test find topo sort" begin
   tn = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
   @assert length(find_topo_sort(tn)) == 7
-  @assert length(find_topo_sort(tn, get_leaves(tn))) == 3
+  @assert length(find_topo_sort(tn; leaves=get_leaves(tn))) == 3
 end

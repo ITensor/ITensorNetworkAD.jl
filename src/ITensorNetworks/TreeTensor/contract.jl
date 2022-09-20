@@ -90,18 +90,49 @@ end
 
 # Note that the children ordering matters here.
 mutable struct IndexAdjacencyTree
-  children::Union{Vector{IndexAdjacencyTree}, IndexGroup}
+  children::Union{Vector{IndexAdjacencyTree},Vector{IndexGroup}}
   fixed_direction::Bool
   fixed_order::Bool
 end
 
+function Base.show(io::IO, tree::IndexAdjacencyTree)
+  out_str = "\n"
+  stack = [tree]
+  node_to_level = Dict{IndexAdjacencyTree,Int}()
+  node_to_level[tree] = 0
+  # pre-order traversal
+  while length(stack) != 0
+    node = pop!(stack)
+    indent_vec = ["  " for _ in 1:node_to_level[node]]
+    indent = string(indent_vec...)
+    if node.children isa Vector{IndexGroup}
+      c = node.children[1]
+      out_str = out_str * indent * string(c) * "\n"
+    else
+      out_str =
+        out_str *
+        indent *
+        "AdjTree: [fixed_direction]: " *
+        string(node.fixed_direction) *
+        " [fixed_order]: " *
+        string(node.fixed_order) *
+        "\n"
+      for c in node.children
+        node_to_level[c] = node_to_level[node] + 1
+        push!(stack, c)
+      end
+    end
+  end
+  return print(io, out_str)
+end
+
 function IndexAdjacencyTree(index_group::IndexGroup)
-  return IndexAdjacencyTree(index_group, false, false)
+  return IndexAdjacencyTree([index_group], false, false)
 end
 
 function get_leaves(tree::IndexAdjacencyTree)
-  if tree.children isa IndexGroup
-    return [tree.children]
+  if tree.children isa Vector{IndexGroup}
+    return tree.children
   end
   leaves = [get_leaves(c) for c in tree.children]
   return vcat(leaves...)
@@ -124,19 +155,19 @@ function Base.iterate(x::IndexAdjacencyTree, index)
 end
 
 function boundary_state(ancestor::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
-  if ancestor.children isa IndexGroup
+  if ancestor.children isa Vector{IndexGroup}
     return "all"
   end
   if !ancestor.fixed_order
     filter_children = filter(a -> contains(a, adj_igs), ancestor.children)
-    @assert length(filter_children) <= 1 
+    @assert length(filter_children) <= 1
     if length(filter_children) == 1
       return "middle"
     elseif Set(get_leaves(ancestor)) == adj_igs
       return "all"
     else
       return "invalid"
-    end 
+    end
   end
   @assert length(ancestor.children) >= 2
   if contains(ancestor.children[1], adj_igs)
@@ -150,33 +181,66 @@ function boundary_state(ancestor::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
   end
 end
 
+function reorder_to_right!(
+  ancestor::IndexAdjacencyTree, filter_children::Vector{IndexAdjacencyTree}
+)
+  remain_children = setdiff(ancestor.children, filter_children)
+  @assert length(filter_children) >= 1
+  @assert length(remain_children) >= 1
+  if length(remain_children) == 1
+    new_child1 = remain_children[1]
+  else
+    new_child1 = IndexAdjacencyTree(remain_children, false, false)
+  end
+  if length(filter_children) == 1
+    new_child2 = filter_children[1]
+  else
+    new_child2 = IndexAdjacencyTree(filter_children, false, false)
+  end
+  ancestor.children = [new_child1, new_child2]
+  return ancestor.fixed_order = true
+end
+
 """
 reorder adj_tree based on adj_igs
 """
 function reorder!(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup}; boundary="right")
   @assert boundary in ["left", "right"]
-  adj_trees = find_topo_sort(adj_tree)
+  if boundary_state(adj_tree, adj_igs) == "all"
+    return false
+  end
+  adj_trees = find_topo_sort(adj_tree; type=IndexAdjacencyTree)
   ancestors = [tree for tree in adj_trees if contains(tree, adj_igs)]
-  ancester_to_state = Dict{IndexAdjacencyTree, String}()
+  ancestor_to_state = Dict{IndexAdjacencyTree,String}()
   # get the boundary state
   for ancestor in ancestors
     state = boundary_state(ancestor, adj_igs)
     if state == "invalid"
       return false
     end
-    ancester_to_state[ancestor] = state
+    ancestor_to_state[ancestor] = state
   end
   # update ancestors
   for ancestor in ancestors
-    if ancester_to_state[ancestor] == "left"
+    # reorder
+    if ancestor_to_state[ancestor] == "left"
       ancestor.children = reverse(ancestor.children)
-    elseif ancester_to_state[ancestor] == "middle"
+    elseif ancestor_to_state[ancestor] == "middle"
       @assert ancestor.fixed_order == false
       filter_children = filter(a -> contains(a, adj_igs), ancestor.children)
-      new_child1 = IndexAdjacencyTree(setdiff(ancestor.children, filter_children), false, false)
-      new_child2 = IndexAdjacencyTree(filter_children, false, false)
-      ancestor.children = [new_child1, new_child2]
-      ancestor.fixed_order = true
+      reorder_to_right!(ancestor, filter_children)
+    end
+    # merge
+    if ancestor.fixed_order && ancestor.children isa Vector{IndexAdjacencyTree}
+      new_children = Vector{IndexAdjacencyTree}()
+      for child in ancestor.children
+        if !child.fixed_order
+          push!(new_children, child)
+        else
+          push!(new_children, child.children...)
+        end
+      end
+      ancestor.children = new_children
     end
   end
   # check boundary
@@ -185,12 +249,15 @@ function reorder!(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup}; bounda
       ancestor.children = reverse(ancestor.children)
     end
   end
+  return true
 end
 
 """
 Update both keys and values in igs_to_adjacency_tree based on list_adjacent_igs
 """
-function update_igs_to_adjacency_tree!(list_adjacent_igs::Vector, igs_to_adjacency_tree::Dict{Set{IndexGroup}, IndexAdjacencyTree})
+function update_igs_to_adjacency_tree!(
+  list_adjacent_igs::Vector, igs_to_adjacency_tree::Dict{Set{IndexGroup},IndexAdjacencyTree}
+)
   function update!(root_igs, adjacent_igs)
     if !haskey(root_igs_to_adjacent_igs, root_igs)
       root_igs_to_adjacent_igs[root_igs] = adjacent_igs
@@ -200,7 +267,7 @@ function update_igs_to_adjacency_tree!(list_adjacent_igs::Vector, igs_to_adjacen
     end
   end
   # get each root igs, get the adjacent igs needed. TODO: do we need to consider boundaries here?
-  root_igs_to_adjacent_igs = Dict{Set{IndexGroup}, Set{IndexGroup}}()
+  root_igs_to_adjacent_igs = Dict{Set{IndexGroup},Set{IndexGroup}}()
   for adjacent_igs in list_adjacent_igs
     for root_igs in keys(igs_to_adjacency_tree)
       if issubset(adjacent_igs, root_igs)
@@ -209,21 +276,27 @@ function update_igs_to_adjacency_tree!(list_adjacent_igs::Vector, igs_to_adjacen
     end
   end
   if length(root_igs_to_adjacent_igs) == 1
-    return
+    return nothing
   end
   # if at least 3: for now just put everything together
   if length(root_igs_to_adjacent_igs) >= 3
     root_igs = keys(root_igs_to_adjacent_igs)
     root = union(root_igs...)
-    igs_to_adjacency_tree[root] = IndexAdjacencyTree([igs_to_adjacency_tree[r] for r in root_igs], false, false)
+    igs_to_adjacency_tree[root] = IndexAdjacencyTree(
+      [igs_to_adjacency_tree[r] for r in root_igs], false, false
+    )
     for r in root_igs
       delete!(igs_to_adjacency_tree, r)
     end
   end
   # if 2: assign adjacent_igs to boundary of root_igs (if possible), then concatenate
   igs1, igs2 = collect(keys(root_igs_to_adjacent_igs))
-  reordered_1 = reorder!(igs_to_adjacency_tree[igs1], root_igs_to_adjacent_igs[igs1]; boundary="right")
-  reordered_2 = reorder!(igs_to_adjacency_tree[igs2], root_igs_to_adjacent_igs[igs2]; boundary="left")
+  reordered_1 = reorder!(
+    igs_to_adjacency_tree[igs1], root_igs_to_adjacent_igs[igs1]; boundary="right"
+  )
+  reordered_2 = reorder!(
+    igs_to_adjacency_tree[igs2], root_igs_to_adjacent_igs[igs2]; boundary="left"
+  )
   adj_tree_1 = igs_to_adjacency_tree[igs1]
   adj_tree_2 = igs_to_adjacency_tree[igs2]
   if (!reordered_1) && (!reordered_2)
@@ -233,8 +306,11 @@ function update_igs_to_adjacency_tree!(list_adjacent_igs::Vector, igs_to_adjacen
   elseif (!reordered_2)
     out_adj_tree = IndexAdjacencyTree([adj_tree_1.children..., adj_tree_2], false, true)
   else
-    out_adj_tree = IndexAdjacencyTree([adj_tree_1.children..., adj_tree_2.children...], false, true)
+    out_adj_tree = IndexAdjacencyTree(
+      [adj_tree_1.children..., adj_tree_2.children...], false, true
+    )
   end
+  root_igs = keys(root_igs_to_adjacent_igs)
   root = union(root_igs...)
   igs_to_adjacency_tree[root] = out_adj_tree
   for r in root_igs
@@ -254,14 +330,14 @@ function generate_adjacency_tree(ctree, ancestors, ctree_to_igs)
   # mapping each index group to adjacent input igs
   ig_to_adjacent_igs = Dict{IndexGroup,Set{IndexGroup}}()
   # mapping each igs to an adjacency tree
-  igs_to_adjacency_tree = Dict{Set{IndexGroup}, IndexAdjacencyTree}()
+  igs_to_adjacency_tree = Dict{Set{IndexGroup},IndexAdjacencyTree}()
   for ig in ctree_to_igs[ctree]
-    ig_to_adjacent_igs[ig] = Set(ig)
-    igs_to_adjacency_tree[Set(ig)] = IndexAdjacencyTree(ig)
+    ig_to_adjacent_igs[ig] = Set([ig])
+    igs_to_adjacency_tree[Set([ig])] = IndexAdjacencyTree(ig)
   end
   for a in ancestors
     inter_igs = intersect(ctree_to_igs[a[1]], ctree_to_igs[a[2]])
-    if ctree in a[1]
+    if issubset(get_leaves(ctree), get_leaves(a[1]))
       new_igs = setdiff(ctree_to_igs[a[2]], inter_igs)
     else
       new_igs = setdiff(ctree_to_igs[a[1]], inter_igs)
@@ -279,29 +355,36 @@ function generate_adjacency_tree(ctree, ancestors, ctree_to_igs)
   end
 end
 
+function get_ancestors(ctrees, node)
+  return [a for a in ctrees if (issubset(get_leaves(node), get_leaves(a)) && node != a)]
+end
+
 # ctree: contraction tree
 # tn: vector of tensors representing a tensor network
 # adj_tree: index adjacency tree
 # ig: index group
 # ig_tree: an index group with a tree hierarchy 
 function approximate_contract(ctree::Vector; kwargs...)
-  index_groups = get_index_groups(ctree)
   tn_leaves = get_leaves(ctree)
-  ctrees = find_topo_sort(ctree, tn_leaves)
+  ctrees = find_topo_sort(ctree; leaves=tn_leaves)
   # mapping each contraction tree to its uncontracted index groups
   ctree_to_igs = Dict{Vector,Vector{IndexGroup}}()
+  index_groups = get_index_groups(ctree)
   for c in vcat(tn_leaves, ctrees)
     ctree_to_igs[c] = neighbor_index_groups(c, index_groups)
   end
   # mapping each contraction tree to its index adjacency tree
   ctree_to_adj_tree = Dict{Vector,IndexAdjacencyTree}()
   for leaf in tn_leaves
-    ancestors = [a for a in ctrees if (leaf in a && leaf != a)]
-    # TODO: implement this
-    ctree_to_adj_tree[leaf] = generate_adjacency_tree(
-      leaf,
-      ancestors,
-      ctree_to_igs
+    ancestors = get_ancestors(ctrees, leaf)
+    ctree_to_adj_tree[leaf] = generate_adjacency_tree(leaf, ancestors, ctree_to_igs)
+  end
+  for c in ctrees
+    ancestors = get_ancestors(ctrees, c)
+    adj_tree = generate_adjacency_tree(c, ancestors, ctree_to_igs)
+    # TODO: get the input line ordering
+    ctree_to_adj_tree[c] = minswap_adjacency_tree(
+      adj_tree, ctree_to_adj_tree[c[1]], ctree_to_adj_tree[c[2]]
     )
   end
   # mapping each contraction tree to a tensor network
@@ -316,22 +399,10 @@ function approximate_contract(ctree::Vector; kwargs...)
       if !haskey(ig_to_ig_tree, ig)
         # TODO: implement this
         ig_to_ig_tree[ig] = construct_index_group_tree(ig, leaf)
-      end 
-    end 
+      end
+    end
   end
   for c in ctrees
-    ancestors = [a for a in ctrees if (c in a && c != a)]
-    adj_tree = generate_adjacency_tree(
-      c,
-      ancestors,
-      ctree_to_igs
-    )
-    # TODO: get the input line ordering
-    ctree_to_adj_tree[c] = minswap_adjacency_tree(
-      adj_tree,
-      ctree_to_adj_tree[c[1]],
-      ctree_to_adj_tree[c[2]]
-    )
     # TODO: implement this
     ctree_to_tn[c] = approximate_contract(
       vcat(ctree_to_tn[c[1]], ctree_to_tn[c[2]]),

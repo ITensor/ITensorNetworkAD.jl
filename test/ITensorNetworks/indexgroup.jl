@@ -1,21 +1,39 @@
 using ITensors
-using ITensorNetworkAD.ITensorNetworks: index_group_info, IndexGroup, get_index_groups
+using ITensorNetworkAD.ITensorNetworks:
+  IndexGroup, get_index_groups, get_leaves, neighbor_index_groups
+using ITensorNetworkAD.ITensorNetworks:
+  inds_network,
+  line_network,
+  IndexAdjacencyTree,
+  find_topo_sort,
+  get_ancestors,
+  generate_adjacency_tree
 
-@testset "test index_group_info" begin
-  a = Index(2, "a")
-  b = Index(2, "b")
-  c = Index(2, "c")
-  d = Index(2, "d")
-  t1 = ITensor(a, b)
-  t2 = ITensor(b, c)
-  t3 = ITensor(c, d)
-  t4 = ITensor(a, d)
-  tn = [[[t1, t2], [t3]], [t4]]
-  index_groups = get_index_groups(tn)
-  tn_ig_dict = Dict{Vector,Vector{IndexGroup}}()
-  for c in get_leaves(tn)
-    tn_ig_dict[c] = neighboring_index_groups(c, index_groups)
+@testset "test generate_adjacency_tree" begin
+  N = (3, 3)
+  tn_inds = inds_network(N...; linkdims=2, periodic=false)
+  tn = vec(map(inds -> randomITensor(inds...), tn_inds))
+  ctree = line_network(tn)
+  tn_leaves = get_leaves(ctree)
+  ctrees = find_topo_sort(ctree; leaves=tn_leaves)
+  ctree_to_igs = Dict{Vector,Vector{IndexGroup}}()
+  index_groups = get_index_groups(ctree)
+  for c in vcat(tn_leaves, ctrees)
+    ctree_to_igs[c] = neighbor_index_groups(c, index_groups)
   end
-  tn_ig_dict, ig_neighbor_set = index_group_info(tn)
-  @assert length(ig_neighbor_set) == 1
+
+  adj_tree1 = generate_adjacency_tree(
+    tn_leaves[4], get_ancestors(ctrees, tn_leaves[4]), ctree_to_igs
+  )
+  adj_tree2 = generate_adjacency_tree(
+    ctrees[2], get_ancestors(ctrees, ctrees[2]), ctree_to_igs
+  )
+  for adj_tree in [adj_tree1, adj_tree1]
+    @assert length(adj_tree.children) == 3
+    @assert adj_tree.fixed_order = true
+    c1, c2, c3 = adj_tree.children
+    @assert length(c1.children) == 1
+    @assert length(c2.children) == 2
+    @assert length(c3.children) == 1
+  end
 end

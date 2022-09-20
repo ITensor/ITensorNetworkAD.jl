@@ -70,19 +70,19 @@ function get_leaves(tree::Vector)
   return mapreduce(get_leaves, vcat, tree)
 end
 
-function find_topo_sort(tn, leaves=[])
+function find_topo_sort(tn; type=Vector, leaves=[])
   topo_order = []
-  topo_sort_dfs!(tn, topo_order, leaves)
+  topo_sort_dfs!(tn, topo_order, leaves, type)
   return topo_order
 end
 
-function topo_sort_dfs!(tn, topo_order, leaves)
+function topo_sort_dfs!(tn, topo_order, leaves, type)
   #Post-order DFS
-  if (tn in leaves) || !(tn isa Vector)
+  if (tn in leaves) || !(tn isa type)
     return nothing
   end
   for subtn in tn
-    topo_sort_dfs!(subtn, topo_order, leaves)
+    topo_sort_dfs!(subtn, topo_order, leaves, type)
   end
   return append!(topo_order, [tn])
 end
