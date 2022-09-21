@@ -95,6 +95,23 @@ mutable struct IndexAdjacencyTree
   fixed_order::Bool
 end
 
+function Base.copy(tree::IndexAdjacencyTree)
+  node_to_copynode = Dict{IndexAdjacencyTree,IndexAdjacencyTree}()
+  for node in find_topo_sort(tree; type=IndexAdjacencyTree)
+    if node.children isa Vector{IndexGroup}
+      node_to_copynode[node] = IndexAdjacencyTree(
+        node.children, node.fixed_direction, node.fixed_order
+      )
+      continue
+    end
+    copynode = IndexAdjacencyTree(
+      [node_to_copynode[n] for n in node.children], node.fixed_direction, node.fixed_order
+    )
+    node_to_copynode[node] = copynode
+  end
+  return node_to_copynode[tree]
+end
+
 function Base.show(io::IO, tree::IndexAdjacencyTree)
   out_str = "\n"
   stack = [tree]
@@ -106,8 +123,9 @@ function Base.show(io::IO, tree::IndexAdjacencyTree)
     indent_vec = ["  " for _ in 1:node_to_level[node]]
     indent = string(indent_vec...)
     if node.children isa Vector{IndexGroup}
-      c = node.children[1]
-      out_str = out_str * indent * string(c) * "\n"
+      for c in node.children
+        out_str = out_str * indent * string(c) * "\n"
+      end
     else
       out_str =
         out_str *
@@ -359,6 +377,107 @@ function get_ancestors(ctrees, node)
   return [a for a in ctrees if (issubset(get_leaves(node), get_leaves(a)) && node != a)]
 end
 
+"""
+Mutates `v` by sorting elements `x[lo:hi]` using the insertion sort algorithm.
+This method is a copy-paste-edit of sort! in base/sort.jl, amended to return the bubblesort distance.
+"""
+function insertion_sort(v::Vector, lo::Int, hi::Int)
+  v = copy(v)
+  if lo == hi
+    return 0
+  end
+  nswaps = 0
+  for i in (lo + 1):hi
+    j = i
+    x = v[i]
+    while j > lo
+      if x < v[j - 1]
+        nswaps += 1
+        v[j] = v[j - 1]
+        j -= 1
+        continue
+      end
+      break
+    end
+    v[j] = x
+  end
+  return nswaps
+end
+
+function insertion_sort(v1::Vector, v2::Vector)
+  value_to_index = Dict{Int,Int}()
+  for (i, v) in enumerate(v2)
+    value_to_index[v] = i
+  end
+  new_v1 = [value_to_index[v] for v in v1]
+  return insertion_sort(new_v1, 1, length(new_v1))
+end
+
+function minswap_adjacency_tree!(adj_tree::IndexAdjacencyTree)
+  leaves = Vector{IndexGroup}(get_leaves(adj_tree))
+  adj_tree.children = leaves
+  adj_tree.fixed_order = true
+  return adj_tree.fixed_direction = true
+end
+
+function minswap_adjacency_tree!(
+  adj_tree::IndexAdjacencyTree, input_tree::IndexAdjacencyTree
+)
+  nodes = input_tree.children
+  node_to_int = Dict{IndexGroup,Int}()
+  int_to_node = Dict{Int,IndexGroup}()
+  index = 1
+  for node in nodes
+    node_to_int[node] = index
+    int_to_node[index] = node
+    index += 1
+  end
+  for node in find_topo_sort(adj_tree; type=IndexAdjacencyTree)
+    if node.children isa Vector{IndexGroup}
+      continue
+    end
+    children_tree = [get_leaves(n) for n in node.children]
+    children_order = vcat(children_tree...)
+    input_int_order = [node_to_int[n] for n in nodes if n in children_order]
+    if node.fixed_order
+      perms = [children_tree, reverse(children_tree)]
+    else
+      perms = collect(permutations(children_tree))
+    end
+    nswaps = []
+    for perm in perms
+      int_order = [node_to_int[n] for n in vcat(perm...)]
+      push!(nswaps, insertion_sort(int_order, input_int_order))
+    end
+    children_tree = perms[argmin(nswaps)]
+    node.children = vcat(children_tree...)
+    node.fixed_order = true
+    node.fixed_direction = true
+  end
+  int_order = [node_to_int[n] for n in adj_tree.children]
+  return insertion_sort(int_order, 1, length(int_order))
+end
+
+function minswap_adjacency_tree(
+  adj_tree::IndexAdjacencyTree,
+  input_tree1::IndexAdjacencyTree,
+  input_tree2::IndexAdjacencyTree,
+)
+  leaves_1 = get_leaves(input_tree1)
+  leaves_2 = get_leaves(input_tree2)
+  inter_igs = intersect(leaves_1, leaves_2)
+  leaves_1 = [i for i in leaves_1 if !(i in inter_igs)]
+  leaves_2 = [i for i in leaves_2 if !(i in inter_igs)]
+  input1 = IndexAdjacencyTree([leaves_1..., leaves_2...], true, true)
+  input2 = IndexAdjacencyTree([leaves_1..., reverse(leaves_2)...], true, true)
+  input3 = IndexAdjacencyTree([reverse(leaves_1)..., leaves_2...], true, true)
+  input4 = IndexAdjacencyTree([reverse(leaves_1)..., reverse(leaves_2)...], true, true)
+  inputs = [input1, input2, input3, input4]
+  adj_tree_copies = [copy(adj_tree) for _ in 1:4]
+  nswaps = [minswap_adjacency_tree!(t, i) for (t, i) in zip(adj_tree_copies, inputs)]
+  return adj_tree_copies[argmin(nswaps)]
+end
+
 # ctree: contraction tree
 # tn: vector of tensors representing a tensor network
 # adj_tree: index adjacency tree
@@ -378,6 +497,7 @@ function approximate_contract(ctree::Vector; kwargs...)
   for leaf in tn_leaves
     ancestors = get_ancestors(ctrees, leaf)
     ctree_to_adj_tree[leaf] = generate_adjacency_tree(leaf, ancestors, ctree_to_igs)
+    minswap_adjacency_tree!(ctree_to_adj_tree[leaf])
   end
   for c in ctrees
     ancestors = get_ancestors(ctrees, c)
