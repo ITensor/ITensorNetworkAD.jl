@@ -9,7 +9,8 @@ using ITensorNetworkAD.ITensorNetworks:
   get_ancestors,
   generate_adjacency_tree,
   minswap_adjacency_tree!,
-  minswap_adjacency_tree
+  minswap_adjacency_tree,
+  approximate_contract
 
 @testset "test generate_adjacency_tree" begin
   N = (3, 3)
@@ -68,3 +69,11 @@ end
   @assert out.children in
     [[i, m, k, j, l], [i, m, k, l, j], [m, i, k, j, l], [m, i, k, l, j]]
 end
+
+# @testset "test approximate_contract" begin
+#   N = (4, 4)
+#   tn_inds = inds_network(N...; linkdims=2, periodic=false)
+#   tn = vec(map(inds -> randomITensor(inds...), tn_inds))
+#   ctree = line_network(tn)
+#   approximate_contract(ctree; cutoff=1e-5, maxdim=20)
+# end

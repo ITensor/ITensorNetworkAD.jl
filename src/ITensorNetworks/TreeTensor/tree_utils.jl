@@ -70,6 +70,13 @@ function get_leaves(tree::Vector)
   return mapreduce(get_leaves, vcat, tree)
 end
 
+function line_to_tree(line::Vector)
+  if length(line) <= 2
+    return line
+  end
+  return [line_to_tree(line[1:(end - 1)]), line[end]]
+end
+
 function find_topo_sort(tn; type=Vector, leaves=[])
   topo_order = []
   topo_sort_dfs!(tn, topo_order, leaves, type)

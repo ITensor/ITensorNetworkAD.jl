@@ -10,9 +10,9 @@ using Test
     # "treetensor.jl",
     # "itensor_network.jl",
     # "projectors.jl",
-    # "interface.jl",
+    "interface.jl",
     # "tree.jl",
-    "indexgroup.jl",
+    # "indexgroup.jl",
   ]
     println("Running $filename in ITensorNetworks.jl")
     include(filename)

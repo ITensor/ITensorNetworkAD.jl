@@ -46,7 +46,7 @@ approximate_contract(tn::ITensor, inds_groups; kwargs...) = [tn]
 
 function approximate_contract(
   tn::Vector{ITensor},
-  inds_groups=nothing;
+  inds_btree=nothing;
   cutoff,
   maxdim,
   maxsize=10^15,
@@ -62,13 +62,15 @@ function approximate_contract(
   if length(innerinds) <= length(tn) - 1
     return tn
   end
-  # TODO: may want to remove this
-  if inds_groups != nothing
-    deltainds = vcat(filter(g -> length(g) > 1, inds_groups)...)
-    deltas, tnprime, _ = split_deltas(deltainds, tn)
-    tn = Vector{ITensor}(vcat(deltas, tnprime))
+  # # TODO: may want to remove this
+  # if inds_groups != nothing
+  #   deltainds = vcat(filter(g -> length(g) > 1, inds_groups)...)
+  #   deltas, tnprime, _ = split_deltas(deltainds, tn)
+  #   tn = Vector{ITensor}(vcat(deltas, tnprime))
+  # end
+  if inds_btree == nothing
+    inds_btree = inds_binary_tree(tn, nothing; algorithm=algorithm)
   end
-  inds_btree = inds_binary_tree(tn, inds_groups; algorithm=algorithm)
   # tree_approximation(tn, inds_btree; cutoff=cutoff, maxdim=maxdim)
   embedding = tree_embedding(tn, inds_btree)
   tn = Vector{ITensor}(vcat(collect(values(embedding))...))
@@ -478,17 +480,10 @@ function minswap_adjacency_tree(
   return adj_tree_copies[argmin(nswaps)]
 end
 
-# ctree: contraction tree
-# tn: vector of tensors representing a tensor network
-# adj_tree: index adjacency tree
-# ig: index group
-# ig_tree: an index group with a tree hierarchy 
-function approximate_contract(ctree::Vector; kwargs...)
-  tn_leaves = get_leaves(ctree)
-  ctrees = find_topo_sort(ctree; leaves=tn_leaves)
+@profile function _approximate_contract_pre_process(tn_leaves, ctrees)
   # mapping each contraction tree to its uncontracted index groups
   ctree_to_igs = Dict{Vector,Vector{IndexGroup}}()
-  index_groups = get_index_groups(ctree)
+  index_groups = get_index_groups(ctrees[end])
   for c in vcat(tn_leaves, ctrees)
     ctree_to_igs[c] = neighbor_index_groups(c, index_groups)
   end
@@ -501,35 +496,52 @@ function approximate_contract(ctree::Vector; kwargs...)
   end
   for c in ctrees
     ancestors = get_ancestors(ctrees, c)
+    if ancestors == []
+      continue
+    end
     adj_tree = generate_adjacency_tree(c, ancestors, ctree_to_igs)
-    # TODO: get the input line ordering
     ctree_to_adj_tree[c] = minswap_adjacency_tree(
       adj_tree, ctree_to_adj_tree[c[1]], ctree_to_adj_tree[c[2]]
     )
-  end
-  # mapping each contraction tree to a tensor network
-  ctree_to_tn = Dict{Vector,Vector{ITensor}}()
-  for leaf in tn_leaves
-    ctree_to_tn[leaf] = leaf
   end
   # mapping each index group to the index group tree
   ig_to_ig_tree = Dict{IndexGroup,IndexGroup}()
   for leaf in tn_leaves
     for ig in ctree_to_igs[leaf]
       if !haskey(ig_to_ig_tree, ig)
-        # TODO: implement this
-        ig_to_ig_tree[ig] = construct_index_group_tree(ig, leaf)
+        inds_tree = inds_binary_tree(leaf, ig.data; algorithm="mincut")
+        ig_to_ig_tree[ig] = IndexGroup(inds_tree, true)
       end
     end
   end
+  return ctree_to_igs, ctree_to_adj_tree, ig_to_ig_tree
+end
+
+# ctree: contraction tree
+# tn: vector of tensors representing a tensor network
+# adj_tree: index adjacency tree
+# ig: index group
+# ig_tree: an index group with a tree hierarchy 
+function approximate_contract(ctree::Vector; kwargs...)
+  tn_leaves = get_leaves(ctree)
+  ctrees = find_topo_sort(ctree; leaves=tn_leaves)
+  ctree_to_igs, ctree_to_adj_tree, ig_to_ig_tree = _approximate_contract_pre_process(
+    tn_leaves, ctrees
+  )
+  # mapping each contraction tree to a tensor network
+  ctree_to_tn = Dict{Vector,Vector{ITensor}}()
+  for leaf in tn_leaves
+    ctree_to_tn[leaf] = leaf
+  end
   for c in ctrees
-    # TODO: implement this
-    ctree_to_tn[c] = approximate_contract(
-      vcat(ctree_to_tn[c[1]], ctree_to_tn[c[2]]),
-      ctree_to_adj_tree[c],
-      ig_to_ig_tree;
-      kwargs...,
-    )
+    tn = vcat(ctree_to_tn[c[1]], ctree_to_tn[c[2]])
+    if ctree_to_igs[c] == []
+      ctree_to_tn[c] = [optcontract(tn)]
+      continue
+    end
+    ordered_igs = ctree_to_adj_tree[c].children
+    inds_btree = line_to_tree([ig_to_ig_tree[ig].data for ig in ordered_igs])
+    ctree_to_tn[c] = approximate_contract(tn, inds_btree; kwargs...)
   end
   return ctree_to_tn[ctrees[end]]
 end
