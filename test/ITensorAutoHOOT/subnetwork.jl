@@ -1,5 +1,5 @@
 using ITensors, ITensorNetworkAD
-using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, get_leaves
+using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, get_leaf_nodes
 
 @testset "test SubNetwork" begin
   i = Index(2, "i")
@@ -13,7 +13,7 @@ using ITensorNetworkAD.ITensorAutoHOOT: SubNetwork, get_leaves
 
   AB = SubNetwork([A, B])
   ABCD = SubNetwork([AB, C, D])
-  @test get_leaves(ABCD) == [A, B, C, D]
+  @test get_leaf_nodes(ABCD) == [A, B, C, D]
   @test inds(ABCD) == [i, j, k, l]
   @test noncommoninds(ABCD, AB, C) == [l]
 end

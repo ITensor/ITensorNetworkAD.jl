@@ -99,7 +99,7 @@ end
 
 function Base.copy(tree::IndexAdjacencyTree)
   node_to_copynode = Dict{IndexAdjacencyTree,IndexAdjacencyTree}()
-  for node in find_topo_sort(tree; type=IndexAdjacencyTree)
+  for node in topo_sort(tree; type=IndexAdjacencyTree)
     if node.children isa Vector{IndexGroup}
       node_to_copynode[node] = IndexAdjacencyTree(
         node.children, node.fixed_direction, node.fixed_order
@@ -150,16 +150,16 @@ function IndexAdjacencyTree(index_group::IndexGroup)
   return IndexAdjacencyTree([index_group], false, false)
 end
 
-function get_leaves(tree::IndexAdjacencyTree)
+@profile function get_adj_tree_leaves(tree::IndexAdjacencyTree)
   if tree.children isa Vector{IndexGroup}
     return tree.children
   end
-  leaves = [get_leaves(c) for c in tree.children]
+  leaves = [get_adj_tree_leaves(c) for c in tree.children]
   return vcat(leaves...)
 end
 
 function Base.contains(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
-  leaves = Set(get_leaves(adj_tree))
+  leaves = Set(get_adj_tree_leaves(adj_tree))
   return issubset(adj_igs, leaves)
 end
 
@@ -183,7 +183,7 @@ function boundary_state(ancestor::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
     @assert length(filter_children) <= 1
     if length(filter_children) == 1
       return "middle"
-    elseif Set(get_leaves(ancestor)) == adj_igs
+    elseif Set(get_adj_tree_leaves(ancestor)) == adj_igs
       return "all"
     else
       return "invalid"
@@ -194,7 +194,7 @@ function boundary_state(ancestor::IndexAdjacencyTree, adj_igs::Set{IndexGroup})
     return "left"
   elseif contains(ancestor.children[end], adj_igs)
     return "right"
-  elseif Set(get_leaves(ancestor)) == adj_igs
+  elseif Set(get_adj_tree_leaves(ancestor)) == adj_igs
     return "all"
   else
     return "invalid"
@@ -229,7 +229,7 @@ function reorder!(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup}; bounda
   if boundary_state(adj_tree, adj_igs) == "all"
     return false
   end
-  adj_trees = find_topo_sort(adj_tree; type=IndexAdjacencyTree)
+  adj_trees = topo_sort(adj_tree; type=IndexAdjacencyTree)
   ancestors = [tree for tree in adj_trees if contains(tree, adj_igs)]
   ancestor_to_state = Dict{IndexAdjacencyTree,String}()
   # get the boundary state
@@ -338,15 +338,13 @@ function update_igs_to_adjacency_tree!(
   end
 end
 
-"""
-Generate the adjacency tree of a contraction tree
-Args:
-==========
-ctree: the input contraction tree
-ancestors: ancestor ctrees of the input ctree
-ctree_to_igs: mapping each ctree to neighboring index groups 
-"""
-function generate_adjacency_tree(ctree, ancestors, ctree_to_igs)
+# Generate the adjacency tree of a contraction tree
+# Args:
+# ==========
+# ctree: the input contraction tree
+# ancestors: ancestor ctrees of the input ctree
+# ctree_to_igs: mapping each ctree to neighboring index groups 
+@profile function generate_adjacency_tree(ctree, ancestors, ctree_to_igs)
   # mapping each index group to adjacent input igs
   ig_to_adjacent_igs = Dict{IndexGroup,Set{IndexGroup}}()
   # mapping each igs to an adjacency tree
@@ -375,15 +373,26 @@ function generate_adjacency_tree(ctree, ancestors, ctree_to_igs)
   end
 end
 
-function get_ancestors(ctrees, node)
-  return [a for a in ctrees if (issubset(get_leaves(node), get_leaves(a)) && node != a)]
+@profile function get_ancestors(ctree)
+  ctree_to_ancestors = Dict{Vector,Vector}()
+  queue = [ctree]
+  ctree_to_ancestors[ctree] = []
+  while queue != []
+    node = popfirst!(queue)
+    if node isa Vector{ITensor}
+      continue
+    end
+    for child in node
+      queue = [queue..., child]
+      ctree_to_ancestors[child] = [node, ctree_to_ancestors[node]...]
+    end
+  end
+  return ctree_to_ancestors
 end
 
-"""
-Mutates `v` by sorting elements `x[lo:hi]` using the insertion sort algorithm.
-This method is a copy-paste-edit of sort! in base/sort.jl, amended to return the bubblesort distance.
-"""
-function insertion_sort(v::Vector, lo::Int, hi::Int)
+# Mutates `v` by sorting elements `x[lo:hi]` using the insertion sort algorithm.
+# This method is a copy-paste-edit of sort! in base/sort.jl, amended to return the bubblesort distance.
+@profile function _insertion_sort(v::Vector, lo::Int, hi::Int)
   v = copy(v)
   if lo == hi
     return 0
@@ -412,11 +421,11 @@ function insertion_sort(v1::Vector, v2::Vector)
     value_to_index[v] = i
   end
   new_v1 = [value_to_index[v] for v in v1]
-  return insertion_sort(new_v1, 1, length(new_v1))
+  return _insertion_sort(new_v1, 1, length(new_v1))
 end
 
 function minswap_adjacency_tree!(adj_tree::IndexAdjacencyTree)
-  leaves = Vector{IndexGroup}(get_leaves(adj_tree))
+  leaves = Vector{IndexGroup}(get_adj_tree_leaves(adj_tree))
   adj_tree.children = leaves
   adj_tree.fixed_order = true
   return adj_tree.fixed_direction = true
@@ -434,11 +443,11 @@ function minswap_adjacency_tree!(
     int_to_node[index] = node
     index += 1
   end
-  for node in find_topo_sort(adj_tree; type=IndexAdjacencyTree)
+  for node in topo_sort(adj_tree; type=IndexAdjacencyTree)
     if node.children isa Vector{IndexGroup}
       continue
     end
-    children_tree = [get_leaves(n) for n in node.children]
+    children_tree = [get_adj_tree_leaves(n) for n in node.children]
     children_order = vcat(children_tree...)
     input_int_order = [node_to_int[n] for n in nodes if n in children_order]
     if node.fixed_order
@@ -457,16 +466,16 @@ function minswap_adjacency_tree!(
     node.fixed_direction = true
   end
   int_order = [node_to_int[n] for n in adj_tree.children]
-  return insertion_sort(int_order, 1, length(int_order))
+  return _insertion_sort(int_order, 1, length(int_order))
 end
 
-function minswap_adjacency_tree(
+@profile function minswap_adjacency_tree(
   adj_tree::IndexAdjacencyTree,
   input_tree1::IndexAdjacencyTree,
   input_tree2::IndexAdjacencyTree,
 )
-  leaves_1 = get_leaves(input_tree1)
-  leaves_2 = get_leaves(input_tree2)
+  leaves_1 = get_adj_tree_leaves(input_tree1)
+  leaves_2 = get_adj_tree_leaves(input_tree2)
   inter_igs = intersect(leaves_1, leaves_2)
   leaves_1 = [i for i in leaves_1 if !(i in inter_igs)]
   leaves_2 = [i for i in leaves_2 if !(i in inter_igs)]
@@ -487,15 +496,17 @@ end
   for c in vcat(tn_leaves, ctrees)
     ctree_to_igs[c] = neighbor_index_groups(c, index_groups)
   end
+  ctree_to_ancestors = get_ancestors(ctrees[end])
   # mapping each contraction tree to its index adjacency tree
   ctree_to_adj_tree = Dict{Vector,IndexAdjacencyTree}()
   for leaf in tn_leaves
-    ancestors = get_ancestors(ctrees, leaf)
-    ctree_to_adj_tree[leaf] = generate_adjacency_tree(leaf, ancestors, ctree_to_igs)
+    ctree_to_adj_tree[leaf] = generate_adjacency_tree(
+      leaf, ctree_to_ancestors[leaf], ctree_to_igs
+    )
     minswap_adjacency_tree!(ctree_to_adj_tree[leaf])
   end
   for c in ctrees
-    ancestors = get_ancestors(ctrees, c)
+    ancestors = ctree_to_ancestors[c]
     if ancestors == []
       continue
     end
@@ -524,7 +535,7 @@ end
 # ig_tree: an index group with a tree hierarchy 
 function approximate_contract(ctree::Vector; kwargs...)
   tn_leaves = get_leaves(ctree)
-  ctrees = find_topo_sort(ctree; leaves=tn_leaves)
+  ctrees = topo_sort(ctree; leaves=tn_leaves)
   ctree_to_igs, ctree_to_adj_tree, ig_to_ig_tree = _approximate_contract_pre_process(
     tn_leaves, ctrees
   )

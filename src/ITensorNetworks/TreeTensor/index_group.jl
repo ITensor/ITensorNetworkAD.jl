@@ -10,7 +10,7 @@ function IndexGroup(indices::Vector{<:Index})
   return IndexGroup(sort(indices), false)
 end
 
-function get_index_groups(tn_tree::Vector)
+@profile function get_index_groups(tn_tree::Vector)
   tn_leaves = get_leaves(tn_tree)
   igs = []
   for (t1, t2) in powerset(tn_leaves, 2, 2)
@@ -22,7 +22,7 @@ function get_index_groups(tn_tree::Vector)
   return igs
 end
 
-function neighbor_index_groups(contraction, index_groups)
+@profile function neighbor_index_groups(contraction, index_groups)
   inds = noncommoninds(vectorize(contraction)...)
   nigs = []
   for ig in index_groups
