@@ -1,5 +1,5 @@
 using ITensorNetworkAD.ITensorNetworks:
-  merge_tree, subtree, vectorize, find_topo_sort, get_leaves
+  merge_tree, subtree, vectorize, topo_sort, get_leaves
 
 @testset "test merge tree" begin
   t1 = [[1], [2], [3]]
@@ -18,6 +18,6 @@ end
 
 @testset "test find topo sort" begin
   tn = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
-  @assert length(find_topo_sort(tn)) == 7
-  @assert length(find_topo_sort(tn; leaves=get_leaves(tn))) == 3
+  @assert length(topo_sort(tn)) == 7
+  @assert length(topo_sort(tn; leaves=get_leaves(tn))) == 3
 end
