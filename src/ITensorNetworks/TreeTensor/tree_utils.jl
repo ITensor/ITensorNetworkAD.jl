@@ -61,3 +61,35 @@ function vectorize(tree)
   end
   return mapreduce(vectorize, vcat, tree)
 end
+
+# example: [[[1,2], [3,4]], [[5,6], [7,8]]] = [[1,2], [3,4], [5,6], [7,8]]
+@profile function get_leaves(tree::Vector)
+  if !(tree isa Vector{<:Vector})
+    return [tree]
+  end
+  return mapreduce(get_leaves, vcat, tree)
+end
+
+@profile function line_to_tree(line::Vector)
+  if length(line) <= 2
+    return line
+  end
+  return [line_to_tree(line[1:(end - 1)]), line[end]]
+end
+
+@profile function topo_sort(tn; type=Vector, leaves=[])
+  topo_order = []
+  topo_sort_dfs!(tn, topo_order, leaves, type)
+  return topo_order
+end
+
+function topo_sort_dfs!(tn, topo_order, leaves, type)
+  #Post-order DFS
+  if (tn in leaves) || !(tn isa type)
+    return nothing
+  end
+  for subtn in tn
+    topo_sort_dfs!(subtn, topo_order, leaves, type)
+  end
+  return append!(topo_order, [tn])
+end

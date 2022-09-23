@@ -4,17 +4,17 @@ end
 
 SubNetwork(inputs::Union{SubNetwork,AbstractTensor}...) = SubNetwork(collect(inputs))
 
-function get_leaves(trees::Vector{SubNetwork})
-  return [get_leaves(tree) for tree in trees]
+function get_leaf_nodes(trees::Vector{SubNetwork})
+  return [get_leaf_nodes(tree) for tree in trees]
 end
 
-function get_leaves(tree::SubNetwork)
-  return mapreduce(get_leaves, vcat, tree.inputs)
+function get_leaf_nodes(tree::SubNetwork)
+  return mapreduce(get_leaf_nodes, vcat, tree.inputs)
 end
 
-get_leaves(tensor::AbstractTensor) = tensor
+get_leaf_nodes(tensor::AbstractTensor) = tensor
 
-ITensors.inds(node::SubNetwork) = noncommoninds(get_leaves(node)...)
+ITensors.inds(node::SubNetwork) = noncommoninds(get_leaf_nodes(node)...)
 
 # Returns a vector of noncommon indices
 ITensors.noncommoninds(node::Union{AbstractTensor,SubNetwork}) = collect(inds(node))

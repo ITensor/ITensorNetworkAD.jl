@@ -35,7 +35,7 @@ end
 )
 
 function Executor(trees::Vector{SubNetwork}, cache::NetworkCache)
-  return Executor(get_leaves(trees), cache)
+  return Executor(get_leaf_nodes(trees), cache)
 end
 
 @non_differentiable Executor(trees::Vector{SubNetwork}, cache::NetworkCache)

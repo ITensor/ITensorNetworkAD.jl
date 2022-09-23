@@ -22,7 +22,7 @@ end
 function NetworkCache(trees::Vector{SubNetwork})
   nodes, node_dict = generate_einsum_expr(trees; optimize=true)
   net_sums = [NetworkSum([n]) for n in nodes]
-  node_index_dict = generate_node_index_dict(node_dict, get_leaves(trees))
+  node_index_dict = generate_node_index_dict(node_dict, get_leaf_nodes(trees))
   return NetworkCache(net_sums, node_index_dict)
 end
 

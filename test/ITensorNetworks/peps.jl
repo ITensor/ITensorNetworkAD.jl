@@ -11,7 +11,7 @@ using ITensorNetworkAD.ITensorNetworks:
   split_network,
   inner_networks,
   tree_w_projectors,
-  get_leaves
+  get_leaf_nodes
 using ITensorNetworkAD.ITensorAutoHOOT:
   generate_optimal_tree, batch_tensor_contraction, Executor
 
@@ -175,7 +175,7 @@ end
 
   projectors = projectors_row[1]
   peps_tree = inner_network(peps_bra_split, peps_ket_split, projectors, tree_w_projectors)
-  leaves = get_leaves(peps_tree)
+  leaves = get_leaf_nodes(peps_tree)
   @test length(leaves) == 2 * Nx * Ny + length(projectors)
   executor = Executor([peps_tree])
   out = batch_tensor_contraction(executor)
@@ -189,7 +189,7 @@ end
       [H_row[i]],
       tree_w_projectors,
     )[1]
-    leaves = get_leaves(peps_tree)
+    leaves = get_leaf_nodes(peps_tree)
     @test length(leaves) == 2 * Nx * Ny + length(projectors_row[i]) + Nx
     executor = Executor([peps_tree])
     out = batch_tensor_contraction(executor)
@@ -204,7 +204,7 @@ end
       [H_column[i]],
       tree_w_projectors,
     )[1]
-    leaves = get_leaves(peps_tree)
+    leaves = get_leaf_nodes(peps_tree)
     @test length(leaves) == 2 * Nx * Ny + length(projectors_column[i]) + Ny
     executor = Executor([peps_tree])
     out = batch_tensor_contraction(executor)

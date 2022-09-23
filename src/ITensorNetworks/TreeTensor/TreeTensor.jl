@@ -19,6 +19,10 @@ function Base.show(io::IO, tree::TreeTensor)
   return print(io, out_str)
 end
 
+function Base.show(io::IO, tensor::ITensor)
+  return print(io, string(inds(tensor)))
+end
+
 TreeTensor(tensors::ITensor...; kwargs...) = TreeTensor(collect(tensors))
 
 @adjoint function TreeTensor(tensor::ITensor)
@@ -62,8 +66,9 @@ end
 
 ITensors.sum(t::TreeTensor; kwargs...) = t
 
-include("tensornetwork_graph.jl")
 include("tree_utils.jl")
+include("index_group.jl")
+include("tensornetwork_graph.jl")
 include("mincut_tree.jl")
 include("tree_embedding.jl")
 include("contract.jl")

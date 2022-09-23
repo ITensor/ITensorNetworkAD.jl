@@ -8,7 +8,7 @@ export generate_einsum_expr, generate_network, extract_network, compute_graph, r
 # zygote functions
 export batch_tensor_contraction, NetworkCache
 # subnetwork
-export SubNetwork, get_leaves, neighboring_tensors
+export SubNetwork, get_leaf_nodes, neighboring_tensors
 # abstractTensor
 export AbstractNetwork, abstract_network
 

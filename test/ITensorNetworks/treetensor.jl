@@ -311,6 +311,7 @@ end
   approximate_contract(
     tntree; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mincut"
   )
+  profile_exit()
 end
 
 #TODO
@@ -344,6 +345,7 @@ end
 #   out, _ = approximate_contract(
 #     [tn12..., tn3...]; cutoff=cutoff, maxdim=maxdim, maxsize=1e15, algorithm="mps"
 #   )
+# profile_exit()
 # end
 
 @testset "benchmark PEPS" begin
