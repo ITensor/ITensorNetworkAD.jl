@@ -272,10 +272,8 @@ function reorder!(adj_tree::IndexAdjacencyTree, adj_igs::Set{IndexGroup}; bounda
   return true
 end
 
-"""
-Update both keys and values in igs_to_adjacency_tree based on list_adjacent_igs
-"""
-function update_igs_to_adjacency_tree!(
+# Update both keys and values in igs_to_adjacency_tree based on list_adjacent_igs
+@profile function update_igs_to_adjacency_tree!(
   list_adjacent_igs::Vector, igs_to_adjacency_tree::Dict{Set{IndexGroup},IndexAdjacencyTree}
 )
   function update!(root_igs, adjacent_igs)
@@ -353,13 +351,10 @@ end
     ig_to_adjacent_igs[ig] = Set([ig])
     igs_to_adjacency_tree[Set([ig])] = IndexAdjacencyTree(ig)
   end
-  for a in ancestors
+  for (i, a) in ancestors
     inter_igs = intersect(ctree_to_igs[a[1]], ctree_to_igs[a[2]])
-    if issubset(get_leaves(ctree), get_leaves(a[1]))
-      new_igs = setdiff(ctree_to_igs[a[2]], inter_igs)
-    else
-      new_igs = setdiff(ctree_to_igs[a[1]], inter_igs)
-    end
+    new_igs_index = (i == 1) ? 2 : 1
+    new_igs = setdiff(ctree_to_igs[a[new_igs_index]], inter_igs)
     # Tensor product is not considered for now
     @assert length(inter_igs) >= 1
     list_adjacent_igs = [ig_to_adjacent_igs[ig] for ig in inter_igs]
@@ -382,9 +377,9 @@ end
     if node isa Vector{ITensor}
       continue
     end
-    for child in node
+    for (i, child) in enumerate(node)
       queue = [queue..., child]
-      ctree_to_ancestors[child] = [node, ctree_to_ancestors[node]...]
+      ctree_to_ancestors[child] = [(i, node), ctree_to_ancestors[node]...]
     end
   end
   return ctree_to_ancestors

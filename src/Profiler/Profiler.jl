@@ -54,7 +54,7 @@ end
 function profile_exit()
   if length(TIME_DICT) > 0
     @info "---profiling info---"
-    for (funcname, time) in TIME_DICT
+    for (funcname, time) in reverse(sort(collect(TIME_DICT); by=x -> x[2]))
       @info "Calling $(funcname) $(NUM_CALLS_DICT[funcname]) times, overall time [$(time)]."
     end
   end
